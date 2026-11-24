@@ -1,6 +1,6 @@
 {
   "appId": "com.inkwell.blog",
-  "appName": "墨井",
+  "appName": "inkwell editor",
   "webDir": "app",
   "android": {
     "allowMixedContent": false

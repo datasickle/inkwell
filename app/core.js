@@ -1,4 +1,4 @@
-// 墨井 · 写作台核心逻辑
+// inkwell editor · 核心逻辑
 // 纯逻辑，不碰 DOM，浏览器与 Node 都能 import（便于测试）。
 
 export const POSTS_DIR = 'src/content/blog';
@@ -171,6 +171,280 @@ export function readingTime(text) {
   const cjk = (String(text).match(/[\u4e00-\u9fa5]/g) || []).length;
   const words = (String(text).replace(/[\u4e00-\u9fa5]/g, ' ').match(/[A-Za-z0-9]+/g) || []).length;
   return Math.max(1, Math.round(cjk / 400 + words / 220));
+}
+
+/* ============ 编辑操作：把格式套到选区上 ============ */
+
+function clampCaret(n, len) {
+  const v = Number.isFinite(n) ? n : len;
+  return Math.max(0, Math.min(v, len));
+}
+
+function normalizeRange(value, start, end) {
+  const len = value.length;
+  let s = clampCaret(start, len);
+  let e = clampCaret(end, len);
+  if (s > e) [s, e] = [e, s];
+  return [s, e];
+}
+
+// 选区所处的整行范围（含首尾，不含换行符）
+function blockRange(value, start, end) {
+  const ls = value.lastIndexOf('\n', start - 1) + 1;
+  let le = value.indexOf('\n', end);
+  if (le === -1) le = value.length;
+  return [ls, le];
+}
+
+const INLINE_STYLES = {
+  bold: { mark: '**', placeholder: '粗体' },
+  italic: { mark: '*', placeholder: '斜体' },
+  strike: { mark: '~~', placeholder: '删除线' },
+  code: { mark: '`', placeholder: '代码' },
+};
+
+// 找出包住选区的同一行内标记对。带两道保险，避免把正文里的星号当格式：
+// 1) 标记内侧不能是空白；2) 单字符标记不能是 ** 的一半。
+function enclosingPair(text, s, e, mark) {
+  const ls = text.lastIndexOf('\n', s - 1) + 1;
+  let le = text.indexOf('\n', e);
+  if (le === -1) le = text.length;
+
+  const open = text.lastIndexOf(mark, s - mark.length);
+  if (open < ls) return null;
+  const close = text.indexOf(mark, e);
+  if (close === -1 || close + mark.length > le) return null;
+  if (close < open + mark.length) return null;
+
+  const afterOpen = text[open + mark.length];
+  const beforeClose = text[close - 1];
+  if (!afterOpen || /\s/.test(afterOpen)) return null;
+  if (!beforeClose || /\s/.test(beforeClose)) return null;
+  if (mark.length === 1 && (text[open - 1] === mark || text[close + 1] === mark)) return null;
+
+  return { open, close };
+}
+
+// 行内样式：选中就包起来，再点一次拆掉（toggle）
+export function formatInline(value, start, end, style) {
+  const spec = INLINE_STYLES[style];
+  if (!spec) throw new Error(`未知的行内样式：${style}`);
+  const text = String(value);
+  const [s, e] = normalizeRange(text, start, end);
+  const { mark, placeholder } = spec;
+  const inner = text.slice(s, e);
+
+  // 1) 选区自己带着标记：**粗体** → 粗体
+  if (inner.length >= mark.length * 2 && inner.startsWith(mark) && inner.endsWith(mark)) {
+    const bare = inner.slice(mark.length, inner.length - mark.length);
+    return { value: text.slice(0, s) + bare + text.slice(e), start: s, end: s + bare.length };
+  }
+
+  // 2) 选区或光标已经被同种标记包住：拆掉外面那对，不重复嵌套
+  const pair = enclosingPair(text, s, e, mark);
+  if (pair) {
+    const { open, close } = pair;
+    const body = text.slice(open + mark.length, close);
+    const map = (n) => Math.min(body.length, Math.max(0, n - (open + mark.length)));
+    return {
+      value: text.slice(0, open) + body + text.slice(close + mark.length),
+      start: open + map(s),
+      end: open + map(e),
+    };
+  }
+
+  // 3) 正常包裹；没选内容就放一段占位文字并选中，方便直接改写
+  const body = inner || placeholder;
+  const at = s + mark.length;
+  return {
+    value: text.slice(0, s) + mark + body + mark + text.slice(e),
+    start: at,
+    end: at + body.length,
+  };
+}
+
+// 链接：选中文字 → [文字](url) 并选中 url；选中的是网址 → [](网址)
+export function formatLink(value, start, end) {
+  const text = String(value);
+  const [s, e] = normalizeRange(text, start, end);
+  const inner = text.slice(s, e);
+
+  const existing = /^\[([^\]]*)\]\(([^)]*)\)$/.exec(inner);
+  if (existing) {
+    return { value: text.slice(0, s) + existing[1] + text.slice(e), start: s, end: s + existing[1].length };
+  }
+
+  if (/^(?:https?:\/\/|mailto:)\S+$/i.test(inner)) {
+    const at = s + 1; // 光标落在 [] 中间
+    return { value: `${text.slice(0, s)}[](${inner})${text.slice(e)}`, start: at, end: at };
+  }
+
+  const label = inner || '链接文字';
+  const urlAt = s + label.length + 3; // [label]( 之后
+  return {
+    value: `${text.slice(0, s)}[${label}](url)${text.slice(e)}`,
+    start: urlAt,
+    end: urlAt + 3,
+  };
+}
+
+function editLines(value, start, end, map) {
+  const text = String(value);
+  const [s, e] = normalizeRange(text, start, end);
+  const [ls, le] = blockRange(text, s, e);
+  const lines = text.slice(ls, le).split('\n');
+  const next = lines.map(map).join('\n');
+  return { value: text.slice(0, ls) + next + text.slice(le), start: ls, end: ls + next.length };
+}
+
+const H_PREFIX = /^ {0,3}#{1,6} +/;
+
+// 标题：再点一次回到普通段落。正文里只给 H2 / H3，H1 留给文章标题
+export function formatHeading(value, start, end, level = 2) {
+  const text = String(value);
+  const lv = Math.max(1, Math.min(6, level));
+  const marker = `${'#'.repeat(lv)} `;
+  const [s, e] = normalizeRange(text, start, end);
+  const [ls, le] = blockRange(text, s, e);
+  const lines = text.slice(ls, le).split('\n');
+  const all = lines.every((l) => new RegExp(`^ {0,3}#{${lv}} `).test(l));
+  return editLines(text, s, e, (line) => (all ? line.replace(H_PREFIX, '') : marker + line.replace(H_PREFIX, '')));
+}
+
+export function formatQuote(value, start, end) {
+  const text = String(value);
+  const [s, e] = normalizeRange(text, start, end);
+  const [ls, le] = blockRange(text, s, e);
+  const lines = text.slice(ls, le).split('\n');
+  const all = lines.every((l) => /^ {0,3}>/.test(l));
+  return editLines(text, s, e, (line) => (all ? line.replace(/^ {0,3}> ?/, '') : `> ${line.replace(/^ {0,3}> ?/, '')}`));
+}
+
+const STRIP_LIST = /^ {0,3}(?:[-*+]|\d+[.)]) +/;
+
+// 列表：无序 ↔ 有序会互相替换；再点一次取消
+export function formatList(value, start, end, ordered = false) {
+  const text = String(value);
+  const [s, e] = normalizeRange(text, start, end);
+  const [ls, le] = blockRange(text, s, e);
+  const lines = text.slice(ls, le).split('\n');
+  const same = ordered ? /^ {0,3}\d+[.)] +/ : /^ {0,3}[-*+] +/;
+  const all = lines.every((l) => same.test(l));
+  let n = 0;
+  return editLines(text, s, e, (line) => {
+    const bare = line.replace(STRIP_LIST, '');
+    if (all) return bare;
+    if (!bare.trim() && lines.length > 1) return ''; // 空行不硬塞项目符号
+    n += 1;
+    return ordered ? `${n}. ${bare}` : `- ${bare}`;
+  });
+}
+
+// 在选区处塞入一段块级内容，前后自动补空行
+export function insertBlock(value, start, end, block) {
+  const text = String(value);
+  const [s, e] = normalizeRange(text, start, end);
+  const before = text.slice(0, s);
+  const after = text.slice(e);
+  const pad = /(?:^|\n\n)$/.test(before) ? '' : before.endsWith('\n') ? '\n' : '\n\n';
+  const tail = /^(?:\n\n|$)/.test(after) ? '' : after.startsWith('\n') ? '\n' : '\n\n';
+  const at = before.length + pad.length;
+  return { value: before + pad + block + tail + after, start: at, end: at + block.length };
+}
+
+export const TABLE_TEMPLATE = '| 列一 | 列二 |\n| --- | --- |\n| 内容 | 内容 |';
+export const IMAGE_TEMPLATE = '![图片说明](https://)';
+
+export function insertTable(value, start, end) {
+  const r = insertBlock(value, start, end, TABLE_TEMPLATE);
+  const at = r.start + TABLE_TEMPLATE.indexOf('列一');
+  return { value: r.value, start: at, end: at + 2 };
+}
+
+export function insertImage(value, start, end) {
+  const r = insertBlock(value, start, end, IMAGE_TEMPLATE);
+  const at = r.start + IMAGE_TEMPLATE.indexOf('图片说明');
+  return { value: r.value, start: at, end: at + 4 };
+}
+
+export function insertHr(value, start, end) {
+  return insertBlock(value, start, end, '---');
+}
+
+// 代码块：有选中就包起来，没有就放假框并把光标放到中间
+export function formatCodeBlock(value, start, end, lang = '') {
+  const text = String(value);
+  const [s, e] = normalizeRange(text, start, end);
+  const inner = text.slice(s, e);
+  const head = `\`\`\`${lang}`;
+  if (!inner.trim()) {
+    const r = insertBlock(text, s, e, `${head}\n\n\`\`\``);
+    const at = r.start + head.length + 1;
+    return { value: r.value, start: at, end: at };
+  }
+  const r = insertBlock(text, s, e, `${head}\n${inner}\n\`\`\``);
+  const at = r.start + head.length + 1;
+  return { value: r.value, start: at, end: at + inner.length };
+}
+
+// 工具栏按钮的统一入口：action 就是按钮上的 data-action
+export function applyFormat(value, start, end, action) {
+  switch (action) {
+    case 'bold':
+      return formatInline(value, start, end, 'bold');
+    case 'italic':
+      return formatInline(value, start, end, 'italic');
+    case 'strike':
+      return formatInline(value, start, end, 'strike');
+    case 'code':
+      return formatInline(value, start, end, 'code');
+    case 'link':
+      return formatLink(value, start, end);
+    case 'h2':
+      return formatHeading(value, start, end, 2);
+    case 'h3':
+      return formatHeading(value, start, end, 3);
+    case 'quote':
+      return formatQuote(value, start, end);
+    case 'ul':
+      return formatList(value, start, end, false);
+    case 'ol':
+      return formatList(value, start, end, true);
+    case 'codeblock':
+      return formatCodeBlock(value, start, end);
+    case 'table':
+      return insertTable(value, start, end);
+    case 'image':
+      return insertImage(value, start, end);
+    case 'hr':
+      return insertHr(value, start, end);
+    default:
+      return null;
+  }
+}
+
+// 回车时自动续上一条列表；空条目回车则退出列表
+export function continueList(value, caret) {
+  const text = String(value);
+  const at = clampCaret(caret, text.length);
+  const ls = text.lastIndexOf('\n', at - 1) + 1;
+  const line = text.slice(ls, at);
+
+  const ul = /^(\s*)([-*+]) +(.*)$/.exec(line);
+  if (ul) {
+    if (!ul[3].trim()) return { handled: true, value: text.slice(0, ls) + text.slice(at), caret: ls };
+    const ins = `\n${ul[1]}${ul[2]} `;
+    return { handled: true, value: text.slice(0, at) + ins + text.slice(at), caret: at + ins.length };
+  }
+
+  const ol = /^(\s*)(\d+)([.)]) +(.*)$/.exec(line);
+  if (ol) {
+    if (!ol[4].trim()) return { handled: true, value: text.slice(0, ls) + text.slice(at), caret: ls };
+    const ins = `\n${ol[1]}${Number(ol[2]) + 1}${ol[3]} `;
+    return { handled: true, value: text.slice(0, at) + ins + text.slice(at), caret: at + ins.length };
+  }
+
+  return { handled: false, value: text, caret: at };
 }
 
 export function parseFrontmatter(raw) {

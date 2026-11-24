@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#14130f" media="(prefers-color-scheme: dark)" />
-    <title>墨井 · 写作台</title>
+    <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)" />
+    <title>inkwell editor</title>
     <link rel="stylesheet" href="./app.css" />
   </head>
   <body class="view-list tab-write">
     <header class="topbar">
-      <div class="brand">墨井</div>
+      <div class="brand">inkwell editor</div>
       <div class="conn" id="conn">未连接</div>
       <div class="spacer"></div>
       <button class="icon-btn" id="btnRefresh" title="刷新">↻</button>
@@ -46,7 +46,43 @@
         </div>
 
         <div class="body-wrap">
-          <textarea class="body-input" id="body" placeholder="从这里开始写…" spellcheck="false"></textarea>
+          <div class="write-pane">
+            <div class="toolbar" id="toolbar" role="toolbar" aria-label="格式">
+              <button class="tb" data-action="bold" title="粗体 Ctrl+B" aria-label="粗体"><span class="tb-b">B</span></button>
+              <button class="tb" data-action="italic" title="斜体 Ctrl+I" aria-label="斜体"><span class="tb-i">I</span></button>
+              <button class="tb" data-action="strike" title="删除线 Ctrl+Shift+X" aria-label="删除线"><span class="tb-s">S</span></button>
+              <span class="tb-sep"></span>
+              <button class="tb" data-action="h2" title="二级标题" aria-label="二级标题"><span class="tb-h">H2</span></button>
+              <button class="tb" data-action="h3" title="三级标题" aria-label="三级标题"><span class="tb-h">H3</span></button>
+              <button class="tb" data-action="quote" title="引用" aria-label="引用"><span class="tb-q">”</span></button>
+              <span class="tb-sep"></span>
+              <button class="tb" data-action="ul" title="无序列表" aria-label="无序列表">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.6 4.6h9M6.6 8h9M6.6 11.4h9"/><circle cx="3.1" cy="4.6" r="1.05"/><circle cx="3.1" cy="8" r="1.05"/><circle cx="3.1" cy="11.4" r="1.05"/></svg>
+              </button>
+              <button class="tb" data-action="ol" title="有序列表" aria-label="有序列表"><span class="tb-num">1.</span></button>
+              <span class="tb-sep"></span>
+              <button class="tb" data-action="link" title="链接 Ctrl+K" aria-label="链接">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.7 9.3a2.9 2.9 0 0 0 4.1 0l2.3-2.3a2.9 2.9 0 1 0-4.1-4.1L7.9 4.1M9.3 6.7a2.9 2.9 0 0 0-4.1 0L2.9 9a2.9 2.9 0 1 0 4.1 4.1L8.1 11.9"/></svg>
+              </button>
+              <button class="tb" data-action="code" title="行内代码" aria-label="行内代码">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.2 4 2.9 8l3.3 4M9.8 4 13.1 8l-3.3 4"/></svg>
+              </button>
+              <button class="tb" data-action="codeblock" title="代码块" aria-label="代码块">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.2" y="3.2" width="11.6" height="9.6" rx="1.6"/><path d="M6.4 6.4 4.8 8l1.6 1.6M9.6 6.4 11.2 8 9.6 9.6"/></svg>
+              </button>
+              <span class="tb-sep"></span>
+              <button class="tb" data-action="table" title="表格" aria-label="表格">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.2" y="3.4" width="11.6" height="9.2" rx="1.2"/><path d="M2.2 6.6h11.6M6.3 6.6v6M9.8 6.6v6"/></svg>
+              </button>
+              <button class="tb" data-action="image" title="图片" aria-label="图片">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.2" y="3.4" width="11.6" height="9.2" rx="1.4"/><circle cx="5.8" cy="6.4" r=".95"/><path d="m3 11.6 3.1-3 2.4 2.3 2.2-2 2.1 2.2"/></svg>
+              </button>
+              <button class="tb" data-action="hr" title="分隔线" aria-label="分隔线">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.4 8h11.2"/></svg>
+              </button>
+            </div>
+            <textarea class="body-input" id="body" placeholder="从这里开始写…" spellcheck="false"></textarea>
+          </div>
           <div class="preview" id="preview"><div class="prose" id="prose"></div></div>
         </div>
       </section>
@@ -104,6 +140,8 @@
         parsePostFile,
         createGitHub,
         GitHubError,
+        applyFormat,
+        continueList,
       } from './core.js';
 
       const CFG_KEY = 'inkwell:cfg';
@@ -129,6 +167,7 @@
         cfgToken: document.getElementById('cfgToken'),
         toast: document.getElementById('toast'),
         tabs: document.getElementById('tabs'),
+        toolbar: document.getElementById('toolbar'),
         btnSave: document.getElementById('btnSave'),
         btnPublish: document.getElementById('btnPublish'),
         btnDelete: document.getElementById('btnDelete'),
@@ -556,6 +595,68 @@
         refresh();
       }
 
+      /* ---------- 格式工具条 ---------- */
+
+      const ACTION_NAMES = {
+        bold: '粗体',
+        italic: '斜体',
+        strike: '删除线',
+        code: '行内代码',
+        link: '链接',
+        h2: '二级标题',
+        h3: '三级标题',
+        quote: '引用',
+        ul: '无序列表',
+        ol: '有序列表',
+        codeblock: '代码块',
+        table: '表格',
+        image: '图片',
+        hr: '分隔线',
+      };
+
+      // 只替换真正变了的那一段：交给浏览器执行，撤销记录不会被清空
+      function diffRange(oldStr, newStr) {
+        const min = Math.min(oldStr.length, newStr.length);
+        let p = 0;
+        while (p < min && oldStr[p] === newStr[p]) p += 1;
+        let q = 0;
+        while (q < min - p && oldStr[oldStr.length - 1 - q] === newStr[newStr.length - 1 - q]) q += 1;
+        return { from: p, to: oldStr.length - q, insert: newStr.slice(p, newStr.length - q) };
+      }
+
+      function commitEdit(next, start, end) {
+        const ta = el.body;
+        const old = ta.value;
+        if (next === old) {
+          ta.focus();
+          ta.setSelectionRange(start, end);
+          return;
+        }
+        ta.focus();
+        const d = diffRange(old, next);
+        let done = false;
+        try {
+          ta.setSelectionRange(d.from, d.to);
+          done = document.execCommand('insertText', false, d.insert);
+        } catch {
+          done = false;
+        }
+        if (!done || ta.value !== next) ta.value = next;
+        ta.setSelectionRange(start, end);
+        if (app.slug) app.dirty = true;
+        setState('有未发布的改动', true);
+        schedulePreview();
+      }
+
+      function runFormat(action) {
+        const focused = document.activeElement === el.body;
+        const len = el.body.value.length;
+        const start = focused ? el.body.selectionStart : len;
+        const end = focused ? el.body.selectionEnd : len;
+        const res = applyFormat(el.body.value, start, end, action);
+        if (res) commitEdit(res.value, res.start, res.end);
+      }
+
       /* ---------- 事件 ---------- */
 
       el.items.addEventListener('click', (e) => {
@@ -585,6 +686,25 @@
         document.body.classList.remove('view-edit');
         document.body.classList.add('view-list');
         renderList();
+      });
+
+      // 按住按钮时不要把焦点从正文夺走，否则选区会丢
+      el.toolbar.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('button[data-action]')) e.preventDefault();
+      });
+      el.toolbar.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (btn) runFormat(btn.dataset.action);
+      });
+
+      el.body.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+        if (e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+        if (el.body.selectionStart !== el.body.selectionEnd) return;
+        const res = continueList(el.body.value, el.body.selectionStart);
+        if (!res.handled) return;
+        e.preventDefault();
+        commitEdit(res.value, res.caret, res.caret);
       });
 
       el.body.addEventListener('input', () => {
@@ -623,6 +743,36 @@
       document.addEventListener('keydown', (e) => {
         const mod = e.metaKey || e.ctrlKey;
         if (!mod) return;
+
+        // 只在正文里响应格式快捷键，标题/标签输入框保持系统行为
+        if (document.activeElement === el.body) {
+          const k = e.key.toLowerCase();
+          if (k === 'b' && !e.shiftKey) {
+            e.preventDefault();
+            return runFormat('bold');
+          }
+          if (k === 'i' && !e.shiftKey) {
+            e.preventDefault();
+            return runFormat('italic');
+          }
+          if (k === 'k' && !e.shiftKey) {
+            e.preventDefault();
+            return runFormat('link');
+          }
+          if (k === 'x' && e.shiftKey) {
+            e.preventDefault();
+            return runFormat('strike');
+          }
+          if (e.shiftKey && e.code === 'Digit7') {
+            e.preventDefault();
+            return runFormat('ol');
+          }
+          if (e.shiftKey && e.code === 'Digit8') {
+            e.preventDefault();
+            return runFormat('ul');
+          }
+        }
+
         if (e.key === 's') {
           e.preventDefault();
           el.btnSave.click();

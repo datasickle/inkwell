@@ -15,6 +15,8 @@ import {
   b64encode,
   b64decode,
   SAFE_SLUG,
+  applyFormat,
+  continueList,
 } from '../app/core.js';
 
 let pass = 0;
@@ -134,6 +136,56 @@ console.log('\n【Markdown 渲染】');
   ok('代码块转义', renderMarkdown('```\n<b>x</b>\n```\n').includes('&lt;b&gt;'));
 
   ok('注入被转义', renderMarkdown('<img src=x onerror=alert(1)>').includes('&lt;img'));
+}
+
+console.log('\n【格式工具条】');
+{
+  const run = (value, s, e, action) => applyFormat(value, s, e, action);
+  const pick = (r) => [r.value, r.start, r.end];
+
+  eq('粗体包裹', pick(run('hello world', 6, 11, 'bold')), ['hello **world**', 8, 13]);
+  eq('粗体取消', pick(run('**bold**', 0, 8, 'bold')), ['bold', 0, 4]);
+  eq('光标在粗体里再点一次', pick(run('**bold**', 4, 4, 'bold')), ['bold', 2, 2]);
+  eq('斜体包裹', pick(run('abc', 0, 3, 'italic')), ['*abc*', 1, 4]);
+  eq('删除线包裹', pick(run('abc', 0, 3, 'strike')), ['~~abc~~', 2, 5]);
+  eq('行内代码取消', pick(run('用 `npm i` 装', 3, 8, 'code')), ['用 npm i 装', 2, 7]);
+  eq('空选区放占位词', pick(run('', 0, 0, 'bold'))[0], '**粗体**');
+
+  eq('链接包文字并选中网址', pick(run('看这里', 1, 3, 'link')), ['看[这里](url)', 6, 9]);
+  eq('选中网址变链接', pick(run('https://a.com', 0, 13, 'link')), ['[](https://a.com)', 1, 1]);
+  eq('链接取消', pick(run('[文字](url)', 0, 11, 'link')), ['文字', 0, 2]);
+
+  eq('二级标题', pick(run('标题\n第二行', 0, 0, 'h2'))[0], '## 标题\n第二行');
+  eq('二级标题取消', pick(run('## 标题', 0, 0, 'h2'))[0], '标题');
+  eq('换级别', pick(run('## 标题', 0, 0, 'h3'))[0], '### 标题');
+
+  eq('引用多行', pick(run('一\n二', 0, 3, 'quote'))[0], '> 一\n> 二');
+  eq('引用取消', pick(run('> 一', 0, 0, 'quote'))[0], '一');
+  eq('无序列表', pick(run('a\nb', 0, 3, 'ul'))[0], '- a\n- b');
+  eq('无序转有序', pick(run('- a\n- b', 0, 7, 'ol'))[0], '1. a\n2. b');
+  eq('列表取消', pick(run('- a\n- b', 0, 7, 'ul'))[0], 'a\nb');
+
+  const table = run('前文', 2, 2, 'table');
+  ok('表格插在空行后', table.value.startsWith('前文\n\n| 列一 | 列二 |'), table.value);
+  ok('表格带分隔行', table.value.includes('| --- | --- |'));
+  eq('表格选中首个表头', table.value.slice(table.start, table.end), '列一');
+
+  eq('代码块包住选区', pick(run('npm i', 0, 5, 'codeblock'))[0], '```\nnpm i\n```');
+  eq('空代码块放光标在中间', pick(run('', 0, 0, 'codeblock')), ['```\n\n```', 4, 4]);
+  ok('分隔线', run('前文', 2, 2, 'hr').value.includes('\n\n---'));
+  ok('图片占位选中说明', (() => {
+    const r = run('', 0, 0, 'image');
+    return r.value === '![图片说明](https://)' && r.value.slice(r.start, r.end) === '图片说明';
+  })());
+}
+
+console.log('\n【列表自动续行】');
+{
+  eq('无序续行', continueList('- 一项', 4), { handled: true, value: '- 一项\n- ', caret: 7 });
+  eq('有序续行递增', continueList('2. 一项', 5), { handled: true, value: '2. 一项\n3. ', caret: 9 });
+  eq('缩进保留', continueList('  - 子项', 6), { handled: true, value: '  - 子项\n  - ', caret: 11 });
+  eq('空条目退出列表', continueList('- ', 2), { handled: true, value: '', caret: 0 });
+  eq('普通段落不动', continueList('一段话', 3).handled, false);
 }
 
 console.log('\n【frontmatter 往返】');

@@ -1,26 +1,26 @@
 :root {
-  --bg: #faf8f4;
-  --card: #fffdf9;
-  --ink: #221f1b;
-  --muted: #7a7369;
-  --line: #e7e1d7;
+  --bg: #fafafa;
+  --card: #ffffff;
+  --ink: #1b1b1b;
+  --muted: #757575;
+  --line: #e6e6e6;
   --accent: #9c4a2f;
-  --accent-soft: #f3e7e0;
-  --code: #f2eee6;
+  --accent-soft: #f7ece8;
+  --code: #f2f2f2;
   --danger: #a8412c;
   --ok: #3f6b4a;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #14130f;
-    --card: #1b1a15;
-    --ink: #e8e3d9;
-    --muted: #9b948a;
-    --line: #2e2b25;
-    --accent: #d9926c;
-    --accent-soft: #2a1f19;
-    --code: #221f19;
+    --bg: #161616;
+    --card: #1d1d1d;
+    --ink: #e9e9e9;
+    --muted: #9a9a9a;
+    --line: #2f2f2f;
+    --accent: #dd9670;
+    --accent-soft: #2b211c;
+    --code: #232323;
     --danger: #e08a72;
     --ok: #86b394;
   }
@@ -74,11 +74,11 @@ button {
 }
 
 .brand {
-  font-family: "Noto Serif TC", Georgia, serif;
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.005em;
   white-space: nowrap;
+  flex: none;
 }
 
 .conn {
@@ -262,9 +262,8 @@ button {
   border: 0;
   background: none;
   outline: none;
-  font-family: "Noto Serif TC", Georgia, serif;
-  font-size: 23px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 650;
   line-height: 1.4;
   padding: 2px 0;
   width: 100%;
@@ -319,8 +318,111 @@ button {
   display: flex;
 }
 
+/* 写作栏：工具条 + 正文，右侧预览是兄弟节点 */
+.write-pane {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.tb {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  transition: background 0.12s, color 0.12s, transform 0.08s;
+}
+
+.tb:hover {
+  background: var(--code);
+  color: var(--ink);
+}
+
+.tb:active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  transform: scale(0.93);
+}
+
+.tb svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tb-h,
+.tb-num {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.tb-b {
+  font-size: 14.5px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.tb-i {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.tb-s {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.tb-q {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+  transform: translateY(-2px);
+}
+
+.tb-sep {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  background: var(--line);
+  margin: 0 5px;
+}
+
 .body-input {
   flex: 1;
+  min-height: 0;
   border: 0;
   outline: none;
   resize: none;
@@ -351,23 +453,22 @@ button {
 .prose h1,
 .prose h2,
 .prose h3 {
-  font-family: "Noto Serif TC", Georgia, serif;
-  font-weight: 600;
+  font-weight: 650;
   line-height: 1.5;
 }
 
 .prose h1 {
-  font-size: 25px;
+  font-size: 26px;
   margin: 0 0 12px;
 }
 
 .prose h2 {
-  font-size: 19px;
-  margin: 32px 0 10px;
+  font-size: 20px;
+  margin: 30px 0 10px;
 }
 
 .prose h3 {
-  font-size: 16.5px;
+  font-size: 17px;
   margin: 24px 0 8px;
 }
 
@@ -582,6 +683,23 @@ button {
   .title-input {
     font-size: 20px;
   }
+
+  .toolbar {
+    padding: 5px 8px;
+    flex-wrap: wrap;
+    overflow: visible;
+    row-gap: 2px;
+    gap: 3px;
+  }
+
+  .tb-sep {
+    display: none;
+  }
+
+  .tb {
+    width: 34px;
+    height: 34px;
+  }
 }
 
 /* ---------- 设置面板 ---------- */
@@ -614,9 +732,8 @@ button {
 
 .sheet-inner h2 {
   margin: 0 0 4px;
-  font-family: "Noto Serif TC", Georgia, serif;
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 650;
 }
 
 .sheet-inner p.hint {

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">墨井</string>
-    <string name="title_activity_main">墨井</string>
+    <string name="app_name">inkwell editor</string>
+    <string name="title_activity_main">inkwell editor</string>
     <string name="package_name">com.inkwell.blog</string>
     <string name="custom_url_scheme">com.inkwell.blog</string>
 </resources>
