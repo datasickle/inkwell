@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
 import remarkCjkFriendly from 'remark-cjk-friendly';
 
 const siteConfig = JSON.parse(
@@ -8,6 +9,10 @@ const siteConfig = JSON.parse(
 
 export default defineConfig({
   site: siteConfig.url,
+  integrations: [
+    // 写作台 /app 不参与搜索收录
+    sitemap({ filter: (page) => !page.includes('/app') }),
+  ],
   build: {
     format: 'directory',
   },

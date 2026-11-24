@@ -25,6 +25,7 @@
     "remark-cjk-friendly": "^2.3.4"
   },
   "devDependencies": {
+    "@astrojs/sitemap": "^3.7.6",
     "@capacitor/cli": "^8.6.2",
     "@tailwindcss/typography": "^0.5.20",
     "autoprefixer": "^10.7.0",

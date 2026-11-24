@@ -1,0 +1,61 @@
+---
+import Base from "../layouts/Base.astro";
+import Container from "../components/Container.astro";
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import { formatDay } from "../lib/format";
+
+const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+);
+
+const groups: { year: number; items: CollectionEntry<"blog">[] }[] = [];
+for (const post of posts) {
+  const year = post.data.date.getFullYear();
+  const last = groups[groups.length - 1];
+  if (last && last.year === year) last.items.push(post);
+  else groups.push({ year, items: [post] });
+}
+---
+
+<Base title="归档">
+  <Container>
+    <div class="space-y-14">
+      <section class="animate space-y-2">
+        <h1 class="text-2xl font-semibold text-black dark:text-white">归档</h1>
+        <p class="text-sm">共 {posts.length} 篇</p>
+      </section>
+
+      {
+        groups.length === 0 ? (
+          <p class="animate text-sm">还没有文章。</p>
+        ) : (
+          <div class="space-y-10">
+            {groups.map((group) => (
+              <section class="animate space-y-3">
+                <div class="text-xs font-semibold tracking-[0.2em] opacity-50">
+                  {group.year}
+                </div>
+                <ul class="space-y-2">
+                  {group.items.map((post) => (
+                    <li class="flex items-baseline gap-3 text-sm">
+                      <span class="shrink-0 tabular-nums opacity-40">
+                        {formatDay(post.data.date)}
+                      </span>
+                      <a
+                        href={`/${post.id}/`}
+                        class="transition-colors duration-300 hover:text-black dark:hover:text-white"
+                      >
+                        {post.data.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        )
+      }
+    </div>
+  </Container>
+</Base>

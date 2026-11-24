@@ -10,8 +10,12 @@ import site from "../../site.json";
       <Link href="/" underline={false}>
         <span class="font-semibold">{site.title}</span>
       </Link>
-      <nav class="flex gap-1 text-sm">
+      <nav class="flex flex-wrap gap-1 text-sm">
         <Link href="/">文章</Link>
+        <span class="opacity-40">{"/"}</span>
+        <Link href="/tags/">标签</Link>
+        <span class="opacity-40">{"/"}</span>
+        <Link href="/archive/">归档</Link>
         <span class="opacity-40">{"/"}</span>
         <Link href="/rss.xml">rss</Link>
       </nav>
