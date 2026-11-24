@@ -102,7 +102,9 @@ bash tools/build-apk.sh
 2. Actions 跑完 → 该次运行页面底部 **Artifacts** → 下载 `inkwell-apk`
 3. 解压得到 `app-debug.apk`，传到手机安装
 
-改动 `app/` 或 `android/` 会自动触发构建。
+改动 `app/` 或 `android/` 会自动触发构建。已实测通过（2026-11-24，全程约 1 分 43 秒，产物 `inkwell-apk` 3.6 MB，保留 90 天）。
+
+**两条路的 APK 签名不同，别混装。** 本机构建用的是固定密钥，能覆盖升级；Actions 每次用 runner 现场生成的密钥，签名每次都变。混装的结果是系统拒绝安装，只能卸载——草稿一起没。
 
 **必须知道的坑：**
 
