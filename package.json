@@ -21,7 +21,8 @@
   "dependencies": {
     "@capacitor/android": "^8.6.2",
     "@capacitor/core": "^8.6.2",
-    "astro": "^6.4.8"
+    "astro": "^6.4.8",
+    "remark-cjk-friendly": "^2.3.4"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.6.2"
