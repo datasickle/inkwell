@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 /* ------------------------------------------------------------------
-   基调：Astro Nano（stone 灰阶、大留白、低对比文字）。
+   基调：Astro Nano（中性灰阶、大留白、低对比文字）。
+   原版用 stone（暖灰，B 通道比 R/G 低），大面积铺开偏米色，这里换 neutral 去暖调。
    与原版的差异集中在三处，都在下面用注释标出。
    ------------------------------------------------------------------ */
 
@@ -27,24 +28,24 @@
 
   body {
     @apply font-sans antialiased flex flex-col;
-    @apply bg-stone-100 dark:bg-stone-900;
+    @apply bg-neutral-50 dark:bg-neutral-900;
     @apply text-black/60 dark:text-white/70;
     text-rendering: optimizeLegibility;
   }
 
   ::selection {
-    background-color: #292524;
-    color: #fafaf9;
+    background-color: #262626;
+    color: #fafafa;
   }
 
   html.dark ::selection {
-    background-color: #e7e5e4;
-    color: #1c1917;
+    background-color: #e5e5e5;
+    color: #171717;
   }
 
   a:focus-visible,
   button:focus-visible {
-    outline: 2px solid rgb(120 113 108 / 0.5);
+    outline: 2px solid rgb(115 115 115 / 0.5);
     outline-offset: 3px;
     border-radius: 4px;
   }
@@ -60,7 +61,7 @@
 @layer components {
   header {
     @apply fixed top-0 left-0 right-0 z-50 py-5;
-    @apply bg-stone-100/75 dark:bg-stone-900/25;
+    @apply bg-neutral-50/75 dark:bg-neutral-900/25;
     @apply backdrop-blur-sm saturate-200;
   }
 
