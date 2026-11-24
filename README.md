@@ -1,4 +1,4 @@
-# 大帝手记
+# datasickle's blog
 
 Astro 静态博客 + 写作台。**内容只有一份真相：GitHub 仓库里的 Markdown 文件。**
 站点由云端构建，写作台有网页版和 Android App 两个入口，写完点「发布」直接提交进仓库。
