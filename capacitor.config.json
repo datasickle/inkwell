@@ -1,0 +1,11 @@
+{
+  "appId": "com.inkwell.blog",
+  "appName": "墨井",
+  "webDir": "app",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

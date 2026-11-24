@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.astro/
+.DS_Store
+Thumbs.db
+
+# Android 构建产物
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/capacitor-cordova-android-plugins/
+
+# 临时文件
+.shot-*.png
+.edgetmp/

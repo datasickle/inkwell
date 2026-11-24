@@ -1,0 +1,49 @@
+---
+import Base from "../layouts/Base.astro";
+import { getCollection, render } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import { formatDate, readingTime } from "../lib/format";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("blog", ({ data }) => !data.draft);
+  return posts.map((post) => ({
+    params: { id: post.id },
+    props: { post },
+  }));
+}
+
+interface Props {
+  post: CollectionEntry<"blog">;
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+const { title, date, tags, summary } = post.data;
+---
+
+<Base title={title} description={summary} type="article">
+  <article>
+    <a class="back-link" href="/">← 全部文章</a>
+    <header class="post-header">
+      <h1>{title}</h1>
+      <div class="post-meta">
+        <time datetime={date.toISOString()}>{formatDate(date)}</time>
+        <span class="dot">/</span>
+        <span>{readingTime(post.body)} 分钟阅读</span>
+        {
+          tags.length > 0 && (
+            <>
+              <span class="dot">/</span>
+              {tags.map((tag: string) => (
+                <span class="tag">{tag}</span>
+              ))}
+            </>
+          )
+        }
+      </div>
+    </header>
+    <div class="prose">
+      <Content />
+    </div>
+  </article>
+</Base>

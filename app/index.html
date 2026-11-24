@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#14130f" media="(prefers-color-scheme: dark)" />
+    <title>墨井 · 写作台</title>
+    <link rel="stylesheet" href="./app.css" />
+  </head>
+  <body class="view-list tab-write">
+    <header class="topbar">
+      <div class="brand">墨井</div>
+      <div class="conn" id="conn">未连接</div>
+      <div class="spacer"></div>
+      <button class="icon-btn" id="btnRefresh" title="刷新">↻</button>
+      <button class="icon-btn" id="btnSettings" title="设置">⚙</button>
+    </header>
+
+    <div class="main">
+      <aside class="side">
+        <div class="side-head">
+          <input class="search" id="search" placeholder="搜索标题…" />
+          <button class="new-btn" id="btnNew">＋ 新篇</button>
+        </div>
+        <div class="items" id="items">
+          <div class="empty">还没有连接仓库</div>
+        </div>
+      </aside>
+
+      <section class="editor">
+        <div class="meta">
+          <input class="title-input" id="title" placeholder="标题" />
+          <div class="meta-row">
+            <input class="chip-input date" id="date" type="date" />
+            <input class="chip-input slug" id="slug" placeholder="路径" spellcheck="false" />
+          </div>
+          <div class="meta-row">
+            <input class="chip-input tags" id="tags" placeholder="标签，逗号分隔" />
+          </div>
+        </div>
+
+        <div class="mobile-tabs" id="tabs">
+          <button data-tab="write" class="on">写作</button>
+          <button data-tab="preview">预览</button>
+        </div>
+
+        <div class="body-wrap">
+          <textarea class="body-input" id="body" placeholder="从这里开始写…" spellcheck="false"></textarea>
+          <div class="preview" id="preview"><div class="prose" id="prose"></div></div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="bottombar">
+      <div class="state" id="state">就绪</div>
+      <button class="btn ghost" id="btnBack">列表</button>
+      <button class="btn ghost" id="btnDelete" title="删除这篇">删除</button>
+      <button class="btn" id="btnSave">存草稿</button>
+      <button class="btn primary" id="btnPublish">发布</button>
+    </footer>
+
+    <div class="sheet" id="sheet">
+      <div class="sheet-inner">
+        <h2>连接到仓库</h2>
+        <p class="hint">
+          内容直接存进 GitHub 仓库，网站由云端自动构建。Token 只存在这台设备的浏览器里，不会上传到别处。
+        </p>
+        <div class="field">
+          <label>仓库（owner/repo）</label>
+          <input id="cfgRepo" placeholder="yourname/my-blog" spellcheck="false" />
+        </div>
+        <div class="field">
+          <label>分支</label>
+          <input id="cfgBranch" placeholder="main" spellcheck="false" />
+        </div>
+        <div class="field">
+          <label>文章目录</label>
+          <input id="cfgDir" placeholder="src/content/blog" spellcheck="false" />
+        </div>
+        <div class="field">
+          <label>GitHub Token（需要 Contents 读写权限）</label>
+          <input id="cfgToken" type="password" placeholder="github_pat_…" spellcheck="false" />
+        </div>
+        <div class="sheet-actions">
+          <button class="btn" id="btnCancelCfg">取消</button>
+          <button class="btn primary" id="btnSaveCfg">保存并连接</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script type="module">
+      import {
+        POSTS_DIR,
+        renderMarkdown,
+        excerpt,
+        normalizeTags,
+        todayISO,
+        slugFor,
+        assertSlug,
+        buildPostFile,
+        parsePostFile,
+        createGitHub,
+        GitHubError,
+      } from './core.js';
+
+      const CFG_KEY = 'inkwell:cfg';
+      const DRAFT_KEY = 'inkwell:draft:';
+      const CACHE_KEY = 'inkwell:cache';
+
+      const el = {
+        conn: document.getElementById('conn'),
+        items: document.getElementById('items'),
+        search: document.getElementById('search'),
+        title: document.getElementById('title'),
+        date: document.getElementById('date'),
+        slug: document.getElementById('slug'),
+        tags: document.getElementById('tags'),
+        body: document.getElementById('body'),
+        prose: document.getElementById('prose'),
+        preview: document.getElementById('preview'),
+        state: document.getElementById('state'),
+        sheet: document.getElementById('sheet'),
+        cfgRepo: document.getElementById('cfgRepo'),
+        cfgBranch: document.getElementById('cfgBranch'),
+        cfgDir: document.getElementById('cfgDir'),
+        cfgToken: document.getElementById('cfgToken'),
+        toast: document.getElementById('toast'),
+        tabs: document.getElementById('tabs'),
+        btnSave: document.getElementById('btnSave'),
+        btnPublish: document.getElementById('btnPublish'),
+        btnDelete: document.getElementById('btnDelete'),
+        btnBack: document.getElementById('btnBack'),
+        btnNew: document.getElementById('btnNew'),
+      };
+
+      const app = {
+        cfg: null,
+        gh: null,
+        items: [],
+        slug: '',
+        sha: null,
+        dirty: false,
+        slugTouched: false,
+        loading: false,
+      };
+
+      /* ---------- 小工具 ---------- */
+
+      let toastTimer = 0;
+      function toast(msg) {
+        el.toast.textContent = msg;
+        el.toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.toast.classList.remove('show'), 2200);
+      }
+
+      function setState(text, warn) {
+        el.state.textContent = text;
+        el.state.className = warn ? 'state warn' : 'state';
+      }
+
+      function readCfg() {
+        try {
+          return JSON.parse(localStorage.getItem(CFG_KEY) || 'null');
+        } catch {
+          return null;
+        }
+      }
+
+      function writeCache(map) {
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify(map));
+        } catch {
+          /* 超额就放弃缓存，不影响主流程 */
+        }
+      }
+
+      function readCache() {
+        try {
+          return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+        } catch {
+          return {};
+        }
+      }
+
+      function readDraft(slug) {
+        try {
+          return JSON.parse(localStorage.getItem(DRAFT_KEY + slug) || 'null');
+        } catch {
+          return null;
+        }
+      }
+
+      function saveDraft() {
+        if (!app.slug) return;
+        const data = {
+          title: el.title.value,
+          date: el.date.value,
+          tags: el.tags.value,
+          body: el.body.value,
+          savedAt: Date.now(),
+        };
+        localStorage.setItem(DRAFT_KEY + app.slug, JSON.stringify(data));
+        app.dirty = true;
+        setState(`草稿已存在本机 · ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`, true);
+      }
+
+      function clearDraft(slug) {
+        localStorage.removeItem(DRAFT_KEY + slug);
+      }
+
+      /* ---------- 预览 ---------- */
+
+      let previewTimer = 0;
+      function schedulePreview() {
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(() => {
+          el.prose.innerHTML = renderMarkdown(el.body.value || '（还没写内容）');
+        }, 120);
+      }
+
+      /* ---------- 连接 ---------- */
+
+      function connect() {
+        if (!app.cfg) {
+          el.conn.textContent = '未连接';
+          el.conn.className = 'conn';
+          return false;
+        }
+        app.gh = createGitHub(app.cfg);
+        el.conn.textContent = `${app.cfg.owner}/${app.cfg.repo}`;
+        el.conn.className = 'conn ok';
+        el.conn.title = `${app.cfg.owner}/${app.cfg.repo} @ ${app.cfg.branch}`;
+        return true;
+      }
+
+      /* ---------- 文章列表 ---------- */
+
+      function renderList() {
+        const q = el.search.value.trim().toLowerCase();
+        const list = app.items.filter((it) => {
+          if (!q) return true;
+          return (it.title || it.slug).toLowerCase().includes(q) || it.slug.includes(q);
+        });
+
+        if (!app.cfg) {
+          el.items.innerHTML = '<div class="empty">先点右上角 ⚙ 填仓库信息</div>';
+          return;
+        }
+        if (!list.length) {
+          el.items.innerHTML = `<div class="empty">${q ? '没有匹配的文章' : '仓库里还没有文章<br />点「＋ 新篇」开始'}</div>`;
+          return;
+        }
+
+        el.items.innerHTML = list
+          .map((it) => {
+            const draft = readDraft(it.slug);
+            const active = it.slug === app.slug ? ' active' : '';
+            const dot = draft ? '<span class="dot"></span>' : '';
+            const tags = it.tags && it.tags.length ? `<span>${it.tags[0]}</span>` : '';
+            return `<button class="item${active}" data-slug="${it.slug}">
+              <span class="t">${escapeHtml(it.title || it.slug)}</span>
+              <span class="m">${dot}<span>${it.date || ''}</span>${tags}</span>
+            </button>`;
+          })
+          .join('');
+      }
+
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      }
+
+      async function refresh() {
+        if (!app.gh || app.loading) return;
+        app.loading = true;
+        setState('正在读取仓库…');
+        try {
+          const files = await app.gh.listDir(app.cfg.dir);
+          const cache = readCache();
+          app.items = files
+            .map((f) => {
+              const hit = cache[f.path];
+              return {
+                slug: f.slug,
+                path: f.path,
+                sha: f.sha,
+                title: hit && hit.sha === f.sha ? hit.title : '',
+                date: hit && hit.sha === f.sha ? hit.date : '',
+                tags: hit && hit.sha === f.sha ? hit.tags : [],
+              };
+            })
+            .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+          renderList();
+
+          const stale = app.items.filter((it) => !it.title);
+          for (let i = 0; i < stale.length; i += 6) {
+            await Promise.all(
+              stale.slice(i, i + 6).map(async (it) => {
+                try {
+                  const file = await app.gh.getFile(it.path);
+                  const parsed = parsePostFile(file.text, it.slug);
+                  it.title = parsed.title;
+                  it.date = parsed.date;
+                  it.tags = parsed.tags;
+                  cache[it.path] = { sha: it.sha, title: parsed.title, date: parsed.date, tags: parsed.tags };
+                } catch {
+                  /* 单个失败不影响整体 */
+                }
+              })
+            );
+            renderList();
+          }
+          writeCache(cache);
+          app.items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+          renderList();
+          setState(`共 ${app.items.length} 篇`);
+        } catch (err) {
+          el.conn.className = 'conn bad';
+          el.conn.textContent = err.status ? `连接失败 ${err.status}` : '连接失败';
+          el.items.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
+          setState(err.message, true);
+        } finally {
+          app.loading = false;
+        }
+      }
+
+      /* ---------- 打开 / 新建 ---------- */
+
+      function fillEditor({ title, date, tags, body }) {
+        el.title.value = title || '';
+        el.date.value = date || todayISO();
+        el.tags.value = (tags || []).join(', ');
+        el.body.value = body || '';
+        schedulePreview();
+      }
+
+      async function openPost(slug) {
+        if (app.dirty && app.slug && app.slug !== slug) saveDraft();
+        const meta = app.items.find((it) => it.slug === slug);
+        if (!meta || !app.gh) return;
+
+        app.slug = slug;
+        app.sha = null;
+        app.slugTouched = true;
+        el.btnDelete.disabled = true;
+        el.slug.value = slug;
+        document.body.classList.remove('view-list');
+        document.body.classList.add('view-edit');
+        setState('读取中…');
+
+        const draft = readDraft(slug);
+        try {
+          const file = await app.gh.getFile(meta.path);
+          app.sha = file.sha;
+          el.btnDelete.disabled = false;
+          const parsed = parsePostFile(file.text, slug);
+          if (draft && draft.savedAt) {
+            fillEditor(draft);
+            app.dirty = true;
+            setState('已载入远程版本，本机有更新的草稿', true);
+          } else {
+            fillEditor(parsed);
+            app.dirty = false;
+            setState('已载入');
+          }
+        } catch (err) {
+          if (draft) {
+            fillEditor(draft);
+            setState('离线：显示本机草稿', true);
+          } else {
+            setState(err.message, true);
+          }
+        }
+        renderList();
+      }
+
+      function newPost() {
+        if (app.dirty && app.slug) saveDraft();
+        app.slug = '';
+        app.sha = null;
+        app.slugTouched = false;
+        el.btnDelete.disabled = true;
+        el.slug.value = '';
+        el.search.value = '';
+        fillEditor({ title: '', date: todayISO(), tags: [], body: '' });
+        app.dirty = false;
+        document.body.classList.remove('view-list');
+        document.body.classList.add('view-edit');
+        setState('新篇 · 还没写标题');
+        renderList();
+        el.title.focus();
+      }
+
+      function ensureSlug() {
+        if (el.slug.value.trim()) {
+          app.slug = el.slug.value.trim();
+          return app.slug;
+        }
+        const s = slugFor(el.title.value, el.date.value || todayISO());
+        el.slug.value = s;
+        app.slug = s;
+        return s;
+      }
+
+      /* ---------- 发布 ---------- */
+
+      async function publish() {
+        if (!app.gh) {
+          openSheet();
+          return;
+        }
+        if (!el.title.value.trim()) {
+          toast('先写个标题');
+          el.title.focus();
+          return;
+        }
+        if (app.dirty && app.slug) saveDraft();
+
+        let slug;
+        try {
+          slug = assertSlug(ensureSlug());
+        } catch (err) {
+          toast(err.message);
+          el.slug.focus();
+          return;
+        }
+
+        const text = buildPostFile({
+          title: el.title.value,
+          date: el.date.value,
+          tags: el.tags.value,
+          draft: false,
+          body: el.body.value,
+          slug,
+        });
+
+        const isNew = !app.sha;
+        const message = `${isNew ? '新增' : '更新'}《${el.title.value.trim()}》`;
+
+        const path = `${app.cfg.dir}/${slug}.md`;
+
+        el.btnPublish.disabled = true;
+        setState('正在发布…');
+        try {
+          let result;
+          try {
+            result = await app.gh.putFile(path, text, message, app.sha || undefined);
+          } catch (err) {
+            // 本地以为不存在、远程其实已有：取回 sha 再覆盖一次
+            if (err.status === 422 && !app.sha) {
+              const remote = await app.gh.getFile(path);
+              result = await app.gh.putFile(path, text, message, remote.sha);
+            } else {
+              throw err;
+            }
+          }
+          app.sha = result.sha;
+          app.slug = slug;
+          app.dirty = false;
+          el.btnDelete.disabled = false;
+          clearDraft(slug);
+
+          const cache = readCache();
+          cache[`${app.cfg.dir}/${slug}.md`] = {
+            sha: result.sha,
+            title: el.title.value.trim(),
+            date: el.date.value,
+            tags: normalizeTags(el.tags.value),
+          };
+          writeCache(cache);
+
+          setState(`已发布 · ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`);
+          toast('已推送，云端会自动构建');
+          if (!app.items.some((it) => it.slug === slug)) {
+            app.items.unshift({
+              slug,
+              path: `${app.cfg.dir}/${slug}.md`,
+              sha: result.sha,
+              title: el.title.value.trim(),
+              date: el.date.value,
+              tags: normalizeTags(el.tags.value),
+            });
+            renderList();
+          }
+        } catch (err) {
+          setState('发布失败', true);
+          toast(err.message || '发布失败');
+          if (err instanceof GitHubError && err.status === 409) {
+            toast('远程有更新，正在重新同步…');
+            await refresh();
+          }
+        } finally {
+          el.btnPublish.disabled = false;
+        }
+      }
+
+      async function removePost() {
+        if (!app.gh || !app.sha || !app.slug) {
+          toast('这篇还没发布到仓库');
+          return;
+        }
+        if (!confirm(`确定删除《${el.title.value || app.slug}》？这会同时从仓库删掉。`)) return;
+        setState('正在删除…');
+        try {
+          await app.gh.deleteFile(`${app.cfg.dir}/${app.slug}.md`, app.sha, `删除《${el.title.value || app.slug}》`);
+          clearDraft(app.slug);
+          app.items = app.items.filter((it) => it.slug !== app.slug);
+          app.sha = null;
+          app.slug = '';
+          el.btnDelete.disabled = true;
+          renderList();
+          document.body.classList.remove('view-edit');
+          document.body.classList.add('view-list');
+          setState('已删除');
+          toast('已从仓库删除');
+        } catch (err) {
+          setState('删除失败', true);
+          toast(err.message || '删除失败');
+        }
+      }
+
+      /* ---------- 设置面板 ---------- */
+
+      function openSheet() {
+        const cfg = app.cfg || {};
+        el.cfgRepo.value = cfg.owner && cfg.repo ? `${cfg.owner}/${cfg.repo}` : '';
+        el.cfgBranch.value = cfg.branch || 'main';
+        el.cfgDir.value = cfg.dir || POSTS_DIR;
+        el.cfgToken.value = cfg.token || '';
+        el.sheet.classList.add('open');
+        el.cfgRepo.focus();
+      }
+
+      function saveCfg() {
+        const raw = el.cfgRepo.value.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '');
+        const parts = raw.split('/').filter(Boolean);
+        if (parts.length !== 2) {
+          toast('仓库要写成 owner/repo 的形式');
+          return;
+        }
+        const cfg = {
+          owner: parts[0],
+          repo: parts[1],
+          branch: el.cfgBranch.value.trim() || 'main',
+          dir: el.cfgDir.value.trim() || POSTS_DIR,
+          token: el.cfgToken.value.trim(),
+        };
+        localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+        app.cfg = cfg;
+        el.sheet.classList.remove('open');
+        connect();
+        refresh();
+      }
+
+      /* ---------- 事件 ---------- */
+
+      el.items.addEventListener('click', (e) => {
+        const btn = e.target.closest('.item');
+        if (btn) openPost(btn.dataset.slug);
+      });
+
+      el.search.addEventListener('input', renderList);
+      el.btnNew.addEventListener('click', newPost);
+      document.getElementById('btnRefresh').addEventListener('click', refresh);
+      document.getElementById('btnSettings').addEventListener('click', openSheet);
+      document.getElementById('btnSaveCfg').addEventListener('click', saveCfg);
+      document.getElementById('btnCancelCfg').addEventListener('click', () => el.sheet.classList.remove('open'));
+      el.btnSave.addEventListener('click', () => {
+        if (!el.slug.value.trim() && el.title.value.trim()) ensureSlug();
+        if (!app.slug) {
+          toast('先写标题，或用日期做路径');
+          ensureSlug();
+        }
+        saveDraft();
+        toast('草稿已存在本机');
+      });
+      el.btnPublish.addEventListener('click', publish);
+      el.btnDelete.addEventListener('click', removePost);
+      el.btnBack.addEventListener('click', () => {
+        if (app.dirty && app.slug) saveDraft();
+        document.body.classList.remove('view-edit');
+        document.body.classList.add('view-list');
+        renderList();
+      });
+
+      el.body.addEventListener('input', () => {
+        schedulePreview();
+        if (app.slug) app.dirty = true;
+        setState('有未发布的改动', true);
+      });
+
+      el.title.addEventListener('input', () => {
+        if (!app.slugTouched) {
+          const s = slugFor(el.title.value, el.date.value || todayISO());
+          el.slug.value = el.title.value.trim() ? s : '';
+        }
+        if (app.slug) app.dirty = true;
+        setState('有未发布的改动', true);
+      });
+
+      el.slug.addEventListener('input', () => {
+        app.slugTouched = true;
+        app.slug = el.slug.value.trim();
+      });
+
+      el.date.addEventListener('change', () => {
+        if (!app.slugTouched) el.slug.value = slugFor(el.title.value, el.date.value);
+      });
+
+      el.tabs.addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        const tab = btn.dataset.tab;
+        for (const b of el.tabs.querySelectorAll('button')) b.classList.toggle('on', b === btn);
+        document.body.classList.toggle('tab-preview', tab === 'preview');
+        document.body.classList.toggle('tab-write', tab === 'write');
+      });
+
+      document.addEventListener('keydown', (e) => {
+        const mod = e.metaKey || e.ctrlKey;
+        if (!mod) return;
+        if (e.key === 's') {
+          e.preventDefault();
+          el.btnSave.click();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          publish();
+        }
+      });
+
+      window.addEventListener('online', () => toast('网络恢复'));
+      window.addEventListener('offline', () => setState('离线 · 改动会存在本机', true));
+
+      /* ---------- 启动 ---------- */
+
+      (function boot() {
+        el.date.value = todayISO();
+        schedulePreview();
+        app.cfg = readCfg();
+        if (!app.cfg || !app.cfg.token) {
+          document.body.classList.add('view-list');
+          renderList();
+          openSheet();
+          return;
+        }
+        connect();
+        refresh();
+      })();
+    </script>
+  </body>
+</html>

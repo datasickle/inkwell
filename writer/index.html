@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>写作台</title>
+    <style>
+      :root {
+        --bg: #efece4;
+        --panel: #faf8f3;
+        --paper: #fffdf8;
+        --ink: #201e1a;
+        --ink-soft: #46423b;
+        --muted: #837c70;
+        --line: #e2dbcd;
+        --line-soft: #ece6da;
+        --accent: #9a4a2b;
+        --ok: #3f6b3a;
+        --warn: #8a5a1e;
+        --err: #a33228;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC",
+          "PingFang TC", "Microsoft JhengHei", sans-serif;
+        font-size: 14px;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .app {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 0 16px;
+        height: 52px;
+        flex: none;
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .brand {
+        font-family: "Noto Serif TC", "Source Han Serif TC", Georgia, serif;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        color: var(--ink);
+      }
+
+      .brand em {
+        font-style: normal;
+        color: var(--accent);
+      }
+
+      .status {
+        flex: 1;
+        font-size: 12px;
+        color: var(--muted);
+        letter-spacing: 0.02em;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--line);
+        flex: none;
+      }
+
+      .dot.dirty {
+        background: var(--warn);
+      }
+
+      .dot.saved {
+        background: var(--ok);
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex: none;
+      }
+
+      button {
+        font: inherit;
+        font-size: 12.5px;
+        letter-spacing: 0.02em;
+        padding: 6px 13px;
+        border-radius: 7px;
+        border: 1px solid var(--line);
+        background: var(--paper);
+        color: var(--ink-soft);
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      button:hover:not(:disabled) {
+        border-color: var(--muted);
+        color: var(--ink);
+      }
+
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff9f4;
+      }
+
+      button.primary:hover:not(:disabled) {
+        filter: brightness(1.08);
+        color: #fff;
+      }
+
+      .kbd {
+        font-size: 10px;
+        opacity: 0.55;
+        margin-left: 5px;
+      }
+
+      .body {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .sidebar {
+        width: 244px;
+        flex: none;
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .search {
+        padding: 12px;
+        border-bottom: 1px solid var(--line-soft);
+      }
+
+      .search input {
+        width: 100%;
+        font: inherit;
+        font-size: 12.5px;
+        padding: 7px 10px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--paper);
+        color: var(--ink);
+        outline: none;
+      }
+
+      .search input:focus {
+        border-color: var(--muted);
+      }
+
+      .list {
+        flex: 1;
+        overflow-y: auto;
+        margin: 0;
+        padding: 6px;
+        list-style: none;
+      }
+
+      .list li {
+        padding: 9px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-bottom: 2px;
+      }
+
+      .list li:hover {
+        background: var(--line-soft);
+      }
+
+      .list li.active {
+        background: var(--line-soft);
+      }
+
+      .list li.active .item-title {
+        color: var(--accent);
+      }
+
+      .item-title {
+        font-size: 13px;
+        line-height: 1.55;
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .item-sub {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 2px;
+        display: flex;
+        gap: 7px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .side-foot {
+        flex: none;
+        border-top: 1px solid var(--line-soft);
+        padding: 9px 12px;
+        font-size: 11px;
+        color: var(--muted);
+        line-height: 1.6;
+        overflow: hidden;
+      }
+
+      .side-foot b {
+        color: var(--err);
+        font-weight: 500;
+      }
+
+      .editor {
+        flex: 1.05;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--paper);
+        border-right: 1px solid var(--line);
+      }
+
+      .title-input {
+        font-family: "Noto Serif TC", "Source Han Serif TC", Georgia, serif;
+        font-size: 25px;
+        font-weight: 600;
+        line-height: 1.45;
+        padding: 26px 34px 4px;
+        border: 0;
+        outline: none;
+        background: transparent;
+        color: var(--ink);
+        width: 100%;
+      }
+
+      .title-input::placeholder {
+        color: var(--line);
+      }
+
+      .meta-row {
+        display: flex;
+        gap: 10px;
+        padding: 0 34px 14px;
+        border-bottom: 1px solid var(--line-soft);
+      }
+
+      .meta-row input {
+        font: inherit;
+        font-size: 12px;
+        color: var(--muted);
+        border: 0;
+        border-bottom: 1px dashed transparent;
+        background: transparent;
+        padding: 3px 0;
+        outline: none;
+      }
+
+      .meta-row input:hover {
+        border-bottom-color: var(--line);
+      }
+
+      .meta-row input:focus {
+        border-bottom-color: var(--accent);
+        color: var(--ink);
+      }
+
+      #date {
+        width: 128px;
+        flex: none;
+      }
+
+      #slug {
+        width: 190px;
+        flex: none;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11.5px;
+      }
+
+      #tags {
+        flex: 1;
+        min-width: 0;
+      }
+
+      textarea {
+        flex: 1;
+        width: 100%;
+        border: 0;
+        outline: none;
+        resize: none;
+        background: transparent;
+        color: var(--ink-soft);
+        font-family: inherit;
+        font-size: 15.5px;
+        line-height: 1.95;
+        padding: 22px 34px 60px;
+        overflow-y: auto;
+      }
+
+      textarea::placeholder {
+        color: var(--line);
+      }
+
+      .preview {
+        flex: 1;
+        min-width: 0;
+        overflow-y: auto;
+        padding: 26px 34px 70px;
+        background: var(--panel);
+      }
+
+      .preview-head {
+        font-size: 10.5px;
+        letter-spacing: 0.18em;
+        color: var(--muted);
+        margin-bottom: 20px;
+        text-transform: uppercase;
+      }
+
+      .prose {
+        font-size: 15.5px;
+        line-height: 1.95;
+        color: var(--ink-soft);
+      }
+
+      .prose > * + * {
+        margin-top: 1.1em;
+      }
+
+      .prose p {
+        margin: 0;
+      }
+
+      .prose h1,
+      .prose h2,
+      .prose h3 {
+        font-family: "Noto Serif TC", "Source Han Serif TC", Georgia, serif;
+        color: var(--ink);
+        font-weight: 600;
+        line-height: 1.55;
+      }
+
+      .prose h1 {
+        font-size: 23px;
+      }
+
+      .prose h2 {
+        font-size: 19.5px;
+        margin-top: 1.9em;
+      }
+
+      .prose h3 {
+        font-size: 16.5px;
+        margin-top: 1.6em;
+      }
+
+      .prose ul,
+      .prose ol {
+        margin: 0;
+        padding-left: 1.35em;
+      }
+
+      .prose li {
+        margin: 0.35em 0;
+      }
+
+      .prose li::marker {
+        color: var(--muted);
+      }
+
+      .prose blockquote {
+        margin: 0;
+        padding: 2px 0 2px 16px;
+        border-left: 2px solid var(--accent);
+        color: var(--muted);
+      }
+
+      .prose code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.87em;
+        background: #f1ece1;
+        border-radius: 4px;
+        padding: 0.14em 0.38em;
+      }
+
+      .prose pre {
+        margin: 0;
+        background: #f1ece1;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px 16px;
+        overflow-x: auto;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+
+      .prose pre code {
+        background: none;
+        padding: 0;
+        font-size: inherit;
+      }
+
+      .prose hr {
+        border: 0;
+        border-top: 1px solid var(--line);
+        margin: 2em 0;
+      }
+
+      .prose strong {
+        font-weight: 600;
+        color: var(--ink);
+      }
+
+      .prose a {
+        color: var(--accent);
+      }
+
+      .prose img {
+        max-width: 100%;
+        border-radius: 7px;
+      }
+
+      .prose table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+      }
+
+      .prose th,
+      .prose td {
+        border-bottom: 1px solid var(--line);
+        padding: 8px 10px;
+        text-align: left;
+      }
+
+      .prose th {
+        color: var(--ink);
+        font-weight: 600;
+        font-size: 12.5px;
+      }
+
+      .empty {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.9;
+      }
+
+      .drawer {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        max-height: 44vh;
+        background: #24221e;
+        color: #ddd7c9;
+        transform: translateY(101%);
+        transition: transform 0.22s ease;
+        display: flex;
+        flex-direction: column;
+        z-index: 20;
+        border-top: 1px solid #3a362f;
+      }
+
+      .drawer.open {
+        transform: translateY(0);
+      }
+
+      .drawer-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 17px;
+        border-bottom: 1px solid #3a362f;
+        font-size: 12px;
+        letter-spacing: 0.03em;
+      }
+
+      .drawer-head .verdict {
+        flex: 1;
+        font-weight: 500;
+      }
+
+      .drawer-head .verdict.ok {
+        color: #9ec49a;
+      }
+
+      .drawer-head .verdict.bad {
+        color: #e0916f;
+      }
+
+      .drawer-head button {
+        background: transparent;
+        border-color: #4a453c;
+        color: #ddd7c9;
+        padding: 3px 10px;
+        font-size: 11.5px;
+      }
+
+      .drawer-body {
+        padding: 12px 17px 18px;
+        overflow-y: auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.85;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 22px;
+        left: 50%;
+        transform: translateX(-50%) translateY(14px);
+        background: #24221e;
+        color: #eee8da;
+        padding: 9px 18px;
+        border-radius: 100px;
+        font-size: 12.5px;
+        letter-spacing: 0.02em;
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.2s ease;
+        z-index: 30;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      @media (max-width: 1080px) {
+        .preview {
+          display: none;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .sidebar {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand"><em>墨</em> 写作台</div>
+        <div class="status">
+          <span class="dot" id="dot"></span>
+          <span id="status-text">准备就绪</span>
+        </div>
+        <div class="actions">
+          <button id="btn-new">新建</button>
+          <button id="btn-save">保存<span class="kbd">⌘S</span></button>
+          <button id="btn-publish" class="primary">推送发布<span class="kbd">⌘⏎</span></button>
+        </div>
+      </header>
+
+      <div class="body">
+        <aside class="sidebar">
+          <div class="search">
+            <input id="search" type="search" placeholder="搜索标题或标签" />
+          </div>
+          <ul class="list" id="list"></ul>
+          <div class="side-foot" id="git-info">读取仓库状态…</div>
+        </aside>
+
+        <section class="editor">
+          <input id="title" class="title-input" placeholder="标题" />
+          <div class="meta-row">
+            <input id="date" type="date" />
+            <input id="slug" placeholder="url 路径" spellcheck="false" />
+            <input id="tags" placeholder="标签，用逗号分隔" />
+          </div>
+          <textarea id="body" placeholder="从这里开始写。左边是你写的，右边是它上线后的样子。" spellcheck="false"></textarea>
+        </section>
+
+        <section class="preview">
+          <div class="preview-head">预览</div>
+          <div class="prose" id="preview">
+            <p class="empty">还没有内容。</p>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="drawer" id="drawer">
+      <div class="drawer-head">
+        <span class="verdict" id="verdict">发布日志</span>
+        <button id="btn-close-drawer">关闭</button>
+      </div>
+      <div class="drawer-body" id="drawer-body"></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      const state = {
+        slug: null,
+        posts: [],
+        dirty: false,
+        savedAt: null,
+        saving: false,
+      };
+
+      const el = {
+        list: document.getElementById('list'),
+        search: document.getElementById('search'),
+        title: document.getElementById('title'),
+        date: document.getElementById('date'),
+        slug: document.getElementById('slug'),
+        tags: document.getElementById('tags'),
+        body: document.getElementById('body'),
+        preview: document.getElementById('preview'),
+        statusText: document.getElementById('status-text'),
+        dot: document.getElementById('dot'),
+        gitInfo: document.getElementById('git-info'),
+        drawer: document.getElementById('drawer'),
+        drawerBody: document.getElementById('drawer-body'),
+        verdict: document.getElementById('verdict'),
+        toast: document.getElementById('toast'),
+        btnNew: document.getElementById('btn-new'),
+        btnSave: document.getElementById('btn-save'),
+        btnPublish: document.getElementById('btn-publish'),
+        btnCloseDrawer: document.getElementById('btn-close-drawer'),
+      };
+
+      async function api(path, options = {}) {
+        const res = await fetch(path, {
+          headers: options.body ? { 'Content-Type': 'application/json' } : {},
+          ...options,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `请求失败 (${res.status})`);
+        return data;
+      }
+
+      function setStatus(text, kind = '') {
+        el.statusText.textContent = text;
+        el.dot.className = `dot ${kind}`;
+      }
+
+      function toast(text) {
+        el.toast.textContent = text;
+        el.toast.classList.add('show');
+        clearTimeout(toast.timer);
+        toast.timer = setTimeout(() => el.toast.classList.remove('show'), 2200);
+      }
+
+      function markDirty() {
+        state.dirty = true;
+        setStatus('未保存的改动', 'dirty');
+      }
+
+      function relTime(iso) {
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return '';
+        return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+      }
+
+      function renderList() {
+        const keyword = el.search.value.trim().toLowerCase();
+        const items = state.posts.filter((post) => {
+          if (!keyword) return true;
+          return (
+            post.title.toLowerCase().includes(keyword) ||
+            post.tags.join(' ').toLowerCase().includes(keyword)
+          );
+        });
+
+        el.list.innerHTML = '';
+
+        if (items.length === 0) {
+          const li = document.createElement('li');
+          li.className = 'empty';
+          li.style.cursor = 'default';
+          li.textContent = state.posts.length ? '没有匹配的文章' : '还没有文章，点「新建」开始。';
+          el.list.appendChild(li);
+          return;
+        }
+
+        for (const post of items) {
+          const li = document.createElement('li');
+          if (post.slug === state.slug) li.classList.add('active');
+
+          const title = document.createElement('span');
+          title.className = 'item-title';
+          title.textContent = post.title;
+
+          const sub = document.createElement('span');
+          sub.className = 'item-sub';
+          sub.textContent = `${relTime(post.date)} · ${post.words} 字`;
+
+          li.append(title, sub);
+          li.addEventListener('click', () => openPost(post.slug));
+          el.list.appendChild(li);
+        }
+      }
+
+      async function loadList() {
+        const data = await api('/api/posts');
+        state.posts = data.posts;
+        renderList();
+      }
+
+      async function loadGit() {
+        try {
+          const info = await api('/api/status');
+          if (!info.repo) {
+            el.gitInfo.innerHTML = '<b>不是 git 仓库</b><br />先在项目根目录 git init';
+            return;
+          }
+          const remote = info.remote ? info.remote.replace(/^https?:\/\//, '').replace(/\.git$/, '') : null;
+          const parts = [];
+          if (remote) {
+            parts.push(remote.length > 30 ? `${remote.slice(0, 30)}…` : remote);
+          } else {
+            parts.push('<b>未配置远程仓库</b>');
+          }
+          parts.push(`分支 ${info.branch || '—'}`);
+          if (info.dirty) parts.push('有未提交改动');
+          el.gitInfo.innerHTML = parts.join('<br />');
+        } catch (error) {
+          el.gitInfo.textContent = '读取失败';
+        }
+      }
+
+      function fillEditor(post) {
+        el.title.value = post.title || '';
+        el.date.value = post.date || '';
+        el.slug.value = post.slug || '';
+        el.tags.value = (post.tags || []).join(', ');
+        el.body.value = post.body || '';
+      }
+
+      async function openPost(slug) {
+        if (state.dirty && !confirm('当前文章有未保存的改动，确定切换吗？')) return;
+        const post = await api(`/api/post/${slug}`);
+        state.slug = slug;
+        state.dirty = false;
+        fillEditor(post);
+        renderList();
+        setStatus('已载入', 'saved');
+        updatePreview();
+        el.body.focus();
+      }
+
+      async function newPost() {
+        if (state.dirty && !confirm('当前文章有未保存的改动，确定新建吗？')) return;
+        const data = await api('/api/new', {
+          method: 'POST',
+          body: JSON.stringify({ title: '' }),
+        });
+        await loadList();
+        state.slug = data.slug;
+        fillEditor(data.post);
+        state.dirty = false;
+        renderList();
+        setStatus('新建成功', 'saved');
+        el.title.focus();
+        updatePreview();
+      }
+
+      function payload() {
+        return {
+          title: el.title.value.trim() || '未命名',
+          date: el.date.value || new Date().toISOString().slice(0, 10),
+          tags: el.tags.value,
+          body: el.body.value,
+        };
+      }
+
+      async function save(options = {}) {
+        if (!state.slug || state.saving) return false;
+        state.saving = true;
+        setStatus('保存中…');
+        try {
+          const data = await api(`/api/post/${state.slug}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload()),
+          });
+          state.dirty = false;
+          state.savedAt = new Date();
+          setStatus(`已保存 ${state.savedAt.toLocaleTimeString('zh-CN', { hour12: false })}`, 'saved');
+          if (!options.silent) toast('已保存');
+          await loadList();
+          return true;
+        } catch (error) {
+          setStatus('保存失败', '');
+          toast(error.message);
+          return false;
+        } finally {
+          state.saving = false;
+        }
+      }
+
+      let previewTimer = null;
+      function updatePreview() {
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(async () => {
+          const text = el.body.value;
+          if (!text.trim()) {
+            el.preview.innerHTML = '<p class="empty">还没有内容。</p>';
+            return;
+          }
+          try {
+            const data = await api('/api/render', {
+              method: 'POST',
+              body: JSON.stringify({ body: text }),
+            });
+            el.preview.innerHTML = data.html;
+          } catch (error) {
+            el.preview.innerHTML = '<p class="empty">预览渲染失败</p>';
+          }
+        }, 220);
+      }
+
+      async function publish() {
+        if (!state.slug) {
+          toast('先新建一篇');
+          return;
+        }
+        el.btnPublish.disabled = true;
+        setStatus('正在保存…');
+        const ok = await save({ silent: true });
+        if (!ok) {
+          el.btnPublish.disabled = false;
+          return;
+        }
+
+        setStatus('正在推送…');
+        try {
+          const result = await api('/api/publish', {
+            method: 'POST',
+            body: JSON.stringify({ message: `post: ${payload().title}` }),
+          });
+          el.verdict.textContent = result.ok ? '推送成功' : '推送未完成';
+          el.verdict.className = `verdict ${result.ok ? 'ok' : 'bad'}`;
+          el.drawerBody.textContent = result.log.join('\n');
+          el.drawer.classList.add('open');
+          setStatus(result.ok ? '已发布' : '推送未完成', result.ok ? 'saved' : '');
+          if (result.ok) toast('已推送，云端开始构建');
+          await loadGit();
+        } catch (error) {
+          el.verdict.textContent = '推送失败';
+          el.verdict.className = 'verdict bad';
+          el.drawerBody.textContent = error.message;
+          el.drawer.classList.add('open');
+          setStatus('推送失败', '');
+        } finally {
+          el.btnPublish.disabled = false;
+        }
+      }
+
+      el.title.addEventListener('input', markDirty);
+      el.date.addEventListener('input', markDirty);
+      el.tags.addEventListener('input', markDirty);
+      el.body.addEventListener('input', () => {
+        markDirty();
+        updatePreview();
+      });
+      el.slug.addEventListener('change', async () => {
+        if (!state.slug) return;
+        const next = el.slug.value.trim().toLowerCase();
+        if (next === state.slug) return;
+        if (!/^[a-z0-9][a-z0-9-]{0,80}$/.test(next)) {
+          toast('路径只能用小写字母、数字和短横线');
+          el.slug.value = state.slug;
+          return;
+        }
+        try {
+          const data = await api('/api/rename', {
+            method: 'POST',
+            body: JSON.stringify({ from: state.slug, to: next }),
+          });
+          state.slug = data.slug;
+          await loadList();
+          toast('路径已更新，旧链接会失效');
+        } catch (error) {
+          toast(error.message);
+          el.slug.value = state.slug;
+        }
+      });
+
+      el.search.addEventListener('input', renderList);
+      el.btnNew.addEventListener('click', newPost);
+      el.btnSave.addEventListener('click', () => save());
+      el.btnPublish.addEventListener('click', publish);
+      el.btnCloseDrawer.addEventListener('click', () => el.drawer.classList.remove('open'));
+
+      document.addEventListener('keydown', (event) => {
+        const meta = event.metaKey || event.ctrlKey;
+        if (meta && event.key.toLowerCase() === 's') {
+          event.preventDefault();
+          save();
+        }
+        if (meta && event.key === 'Enter') {
+          event.preventDefault();
+          publish();
+        }
+        if (event.key === 'Escape') {
+          el.drawer.classList.remove('open');
+        }
+      });
+
+      window.addEventListener('beforeunload', (event) => {
+        if (state.dirty) {
+          event.preventDefault();
+          event.returnValue = '';
+        }
+      });
+
+      (async function boot() {
+        try {
+          await loadList();
+          await loadGit();
+          if (state.posts.length > 0) {
+            await openPost(state.posts[0].slug);
+          } else {
+            setStatus('还没有文章', '');
+          }
+        } catch (error) {
+          setStatus('无法连接写作服务', '');
+          el.preview.innerHTML = `<p class="empty">${error.message}</p>`;
+        }
+      })();
+    </script>
+  </body>
+</html>

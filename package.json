@@ -1,0 +1,29 @@
+{
+  "name": "inkwell-blog",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "个人博客：Astro 静态站 + 写作台（网页 / Android App），内容存 GitHub",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build && node tools/copy-app.mjs",
+    "preview": "astro preview",
+    "write": "node writer/server.mjs",
+    "app:dev": "node tools/dev-server.mjs",
+    "app:serve": "node tools/serve-app.mjs",
+    "test": "node tests/api.mjs",
+    "test:push": "node tests/push.mjs",
+    "test:app": "node tests/app-core.mjs",
+    "android:sync": "cap sync android",
+    "android:open": "cap open android",
+    "app:copy": "node tools/copy-app.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
+    "astro": "^6.4.8"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.2"
+  }
+}
