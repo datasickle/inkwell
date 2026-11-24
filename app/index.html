@@ -9,6 +9,9 @@
     <link rel="stylesheet" href="./app.css" />
   </head>
   <body class="view-list tab-write">
+    <!-- 网络操作期间的不确定进度条：GitHub 接口给不出真实百分比，不假装 -->
+    <div class="progress" id="progress" role="progressbar" aria-hidden="true"><i></i></div>
+
     <header class="topbar">
       <div class="brand">inkwell editor</div>
       <div class="conn" id="conn">未连接</div>
@@ -166,6 +169,7 @@
         cfgDir: document.getElementById('cfgDir'),
         cfgToken: document.getElementById('cfgToken'),
         toast: document.getElementById('toast'),
+        progress: document.getElementById('progress'),
         tabs: document.getElementById('tabs'),
         toolbar: document.getElementById('toolbar'),
         btnSave: document.getElementById('btnSave'),
@@ -199,6 +203,37 @@
       function setState(text, warn) {
         el.state.textContent = text;
         el.state.className = warn ? 'state warn' : 'state';
+      }
+
+      /* ---------- 忙碌态：进度条 + 按钮文字 ---------- */
+
+      let busyDepth = 0;
+
+      function beginBusy(text) {
+        busyDepth++;
+        el.progress.classList.add('on');
+        el.progress.setAttribute('aria-hidden', 'false');
+        if (text) setState(text);
+      }
+
+      function endBusy() {
+        busyDepth = Math.max(0, busyDepth - 1);
+        if (busyDepth > 0) return;
+        el.progress.classList.remove('on');
+        el.progress.setAttribute('aria-hidden', 'true');
+      }
+
+      // 按钮文字换成进行时，结束时还原。原文字存在 dataset 里，不怕多次调用
+      function setBtnBusy(btn, busy, text) {
+        if (!btn) return;
+        if (busy) {
+          if (btn.dataset.label == null) btn.dataset.label = btn.textContent;
+          btn.textContent = text;
+          btn.disabled = true;
+        } else {
+          if (btn.dataset.label != null) btn.textContent = btn.dataset.label;
+          btn.disabled = false;
+        }
       }
 
       function readCfg() {
@@ -315,7 +350,7 @@
       async function refresh() {
         if (!app.gh || app.loading) return;
         app.loading = true;
-        setState('正在读取仓库…');
+        beginBusy('正在读取仓库…');
         try {
           const files = await app.gh.listDir(app.cfg.dir);
           const cache = readCache();
@@ -364,6 +399,7 @@
           setState(err.message, true);
         } finally {
           app.loading = false;
+          endBusy();
         }
       }
 
@@ -417,7 +453,7 @@
         renderList();
       }
 
-      function newPost() {
+      function newPost(focus = true) {
         if (app.dirty && app.slug) saveDraft();
         app.slug = '';
         app.sha = null;
@@ -429,9 +465,10 @@
         app.dirty = false;
         document.body.classList.remove('view-list');
         document.body.classList.add('view-edit');
+        setTab('write');
         setState('新篇 · 还没写标题');
         renderList();
-        el.title.focus();
+        if (focus) el.title.focus();
       }
 
       function ensureSlug() {
@@ -482,8 +519,8 @@
 
         const path = `${app.cfg.dir}/${slug}.md`;
 
-        el.btnPublish.disabled = true;
-        setState('正在发布…');
+        setBtnBusy(el.btnPublish, true, '发布中…');
+        beginBusy('正在推送…');
         try {
           let result;
           try {
@@ -512,8 +549,7 @@
           };
           writeCache(cache);
 
-          setState(`已发布 · ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`);
-          toast('已推送，云端会自动构建');
+          const at = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
           if (!app.items.some((it) => it.slug === slug)) {
             app.items.unshift({
               slug,
@@ -523,8 +559,12 @@
               date: el.date.value,
               tags: normalizeTags(el.tags.value),
             });
-            renderList();
           }
+          renderList();
+
+          toast('已发布，云端会自动构建');
+          newPost(false); // 发布完清空当前页，直接开始下一篇（不弹键盘）
+          setState(`已发布 · ${at}`);
         } catch (err) {
           setState('发布失败', true);
           toast(err.message || '发布失败');
@@ -533,7 +573,8 @@
             await refresh();
           }
         } finally {
-          el.btnPublish.disabled = false;
+          setBtnBusy(el.btnPublish, false);
+          endBusy();
         }
       }
 
@@ -543,7 +584,8 @@
           return;
         }
         if (!confirm(`确定删除《${el.title.value || app.slug}》？这会同时从仓库删掉。`)) return;
-        setState('正在删除…');
+        setBtnBusy(el.btnDelete, true, '删除中…');
+        beginBusy('正在删除…');
         try {
           await app.gh.deleteFile(`${app.cfg.dir}/${app.slug}.md`, app.sha, `删除《${el.title.value || app.slug}》`);
           clearDraft(app.slug);
@@ -559,6 +601,11 @@
         } catch (err) {
           setState('删除失败', true);
           toast(err.message || '删除失败');
+        } finally {
+          setBtnBusy(el.btnDelete, false);
+          // 删成功后 app.sha 已清空，按钮要重新禁用；失败则保持可用
+          el.btnDelete.disabled = !app.sha;
+          endBusy();
         }
       }
 
@@ -731,13 +778,18 @@
         if (!app.slugTouched) el.slug.value = slugFor(el.title.value, el.date.value);
       });
 
+      function setTab(name) {
+        for (const b of el.tabs.querySelectorAll('button')) {
+          b.classList.toggle('on', b.dataset.tab === name);
+        }
+        document.body.classList.toggle('tab-preview', name === 'preview');
+        document.body.classList.toggle('tab-write', name === 'write');
+      }
+
       el.tabs.addEventListener('click', (e) => {
         const btn = e.target.closest('button');
         if (!btn) return;
-        const tab = btn.dataset.tab;
-        for (const b of el.tabs.querySelectorAll('button')) b.classList.toggle('on', b === btn);
-        document.body.classList.toggle('tab-preview', tab === 'preview');
-        document.body.classList.toggle('tab-write', tab === 'write');
+        setTab(btn.dataset.tab);
       });
 
       document.addEventListener('keydown', (e) => {

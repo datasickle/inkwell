@@ -671,13 +671,21 @@ button {
     padding: 16px 18px 60px;
   }
 
-  body.tab-preview .body-wrap {
+  /* 只藏写作栏。.body-wrap 是写作栏和预览的共同父级，
+     藏父级会把预览一起藏掉（表现为切到「预览」整片空白） */
+  body.tab-preview .write-pane {
     display: none;
   }
 
   body.tab-preview .preview {
     display: block;
     flex: 1;
+    min-height: 0;
+  }
+
+  /* 手机上没有左右分栏，预览占满宽度 */
+  body.tab-preview .preview .prose {
+    max-width: none;
   }
 
   .title-input {
@@ -776,6 +784,49 @@ button {
 
 .sheet-actions .btn {
   flex: 1;
+}
+
+/* ---------- 进度条 ---------- */
+
+.progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 90;
+  transition: opacity 0.16s;
+}
+
+.progress.on {
+  opacity: 1;
+}
+
+.progress i {
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: progress-slide 1.15s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress i {
+    animation-duration: 2.4s;
+  }
 }
 
 .toast {
