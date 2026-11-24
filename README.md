@@ -24,13 +24,32 @@ Astro 静态博客 + 写作台。**内容只有一份真相：GitHub 仓库里�
 
 | 路径 | 是什么 |
 | --- | --- |
-| `src/` | Astro 站点：首页、文章页、RSS、样式 |
+| `src/` | Astro 站点：首页、文章页、RSS、样式（Tailwind） |
 | `src/content/blog/` | **所有文章（纯 Markdown，这是全部家当）** |
 | `app/` | 写作台，纯静态，网页和 App 共用同一份代码 |
 | `android/` | Capacitor 生成的原生壳（WebView 加载 `app/`） |
 | `writer/` | 备用的本地写作台（跑在本机、用 git 推送，不需要 token） |
 | `tools/` | 本地服务器、产物复制 |
 | `tests/` | 三套自测 |
+
+## 站点样式
+
+视觉基调来自 [Astro Nano](https://github.com/markhorn-dev/astro-nano)（MIT）：stone 灰阶、单列窄栏、大留白、页头毛玻璃。只搬了外观，内容层原样保留 —— `src/content/blog/` 的结构和 frontmatter（`title` / `date` / `tags` / `draft` / `summary`）还是自己的定义，写作台产出的就是这套字段，所以换主题不用动写作台。
+
+| 文件 | 作用 |
+| --- | --- |
+| `tailwind.config.mjs` | 字体栈、prose 正文排版细节 |
+| `postcss.config.mjs` | 让 Astro 用 PostCSS 处理 Tailwind |
+| `src/styles/global.css` | 全局基调、深色模式、Shiki 双主题、淡入动画 |
+| `src/components/` | 页头、页脚、文章卡片、返回/回顶按钮 |
+
+与 Nano 原版刻意不同的三处：
+
+1. **字体**：原版内嵌 Inter / Lora，两者都没有中文字形，中文会 fallback 成浏览器默认。这里改用系统中文栈，顺带省掉四个 woff2。
+2. **正文不用衬线**：原版给正文加了 `prose-p:font-serif`，中文对应宋体，Windows 小字号下发虚，所以去掉，靠行高和留白撑呼吸感。
+3. **淡入改用 CSS 动画**：原版靠 JS 加 `.show` 类，脚本一旦报错整页内容都是透明的；改成 `@keyframes` 后不依赖 JS。
+
+深色模式是 `html.dark` 类 + localStorage 三态（浅色 / 深色 / 跟随系统），切换逻辑内联在 `Head.astro` 的 `<head>` 里，避免深色用户每次打开先闪一下白。
 
 ## 第一次配置
 

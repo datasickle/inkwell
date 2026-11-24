@@ -1,8 +1,11 @@
 ---
 import Base from "../layouts/Base.astro";
+import Container from "../components/Container.astro";
+import FormattedDate from "../components/FormattedDate.astro";
+import BackToPrev from "../components/BackToPrev.astro";
 import { getCollection, render } from "astro:content";
 import type { CollectionEntry } from "astro:content";
-import { formatDate, readingTime } from "../lib/format";
+import { readingTime } from "../lib/format";
 
 export async function getStaticPaths() {
   const posts = await getCollection("blog", ({ data }) => !data.draft);
@@ -22,28 +25,32 @@ const { title, date, tags, summary } = post.data;
 ---
 
 <Base title={title} description={summary} type="article">
-  <article>
-    <a class="back-link" href="/">← 全部文章</a>
-    <header class="post-header">
-      <h1>{title}</h1>
-      <div class="post-meta">
-        <time datetime={date.toISOString()}>{formatDate(date)}</time>
-        <span class="dot">/</span>
-        <span>{readingTime(post.body)} 分钟阅读</span>
+  <Container>
+    <div class="animate">
+      <BackToPrev href="/">全部文章</BackToPrev>
+    </div>
+
+    <div class="my-10 space-y-1">
+      <div class="animate flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
+        <FormattedDate date={date} />
+        <span class="opacity-40">{"/"}</span>
+        <span>{readingTime(post.body)} 分钟</span>
         {
           tags.length > 0 && (
             <>
-              <span class="dot">/</span>
-              {tags.map((tag: string) => (
-                <span class="tag">{tag}</span>
-              ))}
+              <span class="opacity-40">{"/"}</span>
+              <span class="opacity-70">{tags.join(" ・ ")}</span>
             </>
           )
         }
       </div>
-    </header>
-    <div class="prose">
-      <Content />
+      <h1 class="animate text-2xl sm:text-3xl font-semibold leading-snug text-black dark:text-white">
+        {title}
+      </h1>
     </div>
-  </article>
+
+    <article class="animate">
+      <Content />
+    </article>
+  </Container>
 </Base>

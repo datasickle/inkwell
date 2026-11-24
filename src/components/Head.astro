@@ -1,0 +1,147 @@
+---
+import site from "../../site.json";
+
+interface Props {
+  title?: string;
+  description?: string;
+  type?: string;
+}
+
+const { title, description, type = "website" } = Astro.props;
+
+const pageTitle = title ? `${title} — ${site.title}` : site.title;
+const pageDesc = description || site.description;
+const canonical = Astro.site
+  ? new URL(Astro.url.pathname, Astro.site).href
+  : Astro.url.pathname;
+const ogImage = new URL("/favicon.svg", Astro.site ?? Astro.url);
+---
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="generator" content={Astro.generator} />
+<meta name="color-scheme" content="light dark" />
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="canonical" href={canonical} />
+<link rel="alternate" type="application/rss+xml" title={site.title} href={new URL("/rss.xml", Astro.site ?? Astro.url)} />
+
+<title>{pageTitle}</title>
+<meta name="title" content={pageTitle} />
+<meta name="description" content={pageDesc} />
+
+<meta property="og:type" content={type} />
+<meta property="og:url" content={Astro.url} />
+<meta property="og:title" content={pageTitle} />
+<meta property="og:description" content={pageDesc} />
+<meta property="og:image" content={ogImage} />
+<meta property="og:locale" content="zh_CN" />
+
+<meta property="twitter:card" content="summary" />
+<meta property="twitter:title" content={pageTitle} />
+<meta property="twitter:description" content={pageDesc} />
+
+<!--
+  主题切换。内联在 head 里，是为了在首次绘制之前就把 dark 类加上，
+  否则深色模式用户每次打开都会看到一瞬白屏。逻辑本身照搬 Astro Nano。
+-->
+<script is:inline>
+  (function () {
+    var KEY = "theme";
+
+    function prefersDark() {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+
+    function apply(dark) {
+      var root = document.documentElement;
+
+      // 切换瞬间临时禁用所有过渡，否则整页元素会一起做颜色动画，很脏
+      var css = document.createElement("style");
+      css.textContent = "*,*::before,*::after{transition:none !important}";
+      document.head.appendChild(css);
+
+      root.classList.toggle("dark", dark);
+
+      // 读一次样式强制回流，再移除，改动才会立刻生效
+      void window.getComputedStyle(css).opacity;
+      document.head.removeChild(css);
+    }
+
+    function stored() {
+      var v = null;
+      try {
+        v = localStorage.getItem(KEY);
+      } catch (e) {}
+      if (v === "dark") return true;
+      if (v === "light") return false;
+      return prefersDark();
+    }
+
+    function save(value) {
+      try {
+        localStorage.setItem(KEY, value);
+      } catch (e) {}
+    }
+
+    function onScroll() {
+      document.documentElement.classList.toggle("scrolled", window.scrollY > 0);
+    }
+
+    // 先上色，后绑定
+    apply(stored());
+
+    function init() {
+      var light = document.getElementById("light-theme-button");
+      var darkBtn = document.getElementById("dark-theme-button");
+      var system = document.getElementById("system-theme-button");
+
+      if (light) {
+        light.addEventListener("click", function () {
+          save("light");
+          apply(false);
+        });
+      }
+      if (darkBtn) {
+        darkBtn.addEventListener("click", function () {
+          save("dark");
+          apply(true);
+        });
+      }
+      if (system) {
+        system.addEventListener("click", function () {
+          save("system");
+          apply(prefersDark());
+        });
+      }
+
+      var mq = window.matchMedia("(prefers-color-scheme: dark)");
+      if (mq.addEventListener) {
+        mq.addEventListener("change", function (e) {
+          var v = null;
+          try {
+            v = localStorage.getItem(KEY);
+          } catch (err) {}
+          if (!v || v === "system") apply(e.matches);
+        });
+      }
+
+      var backToTop = document.getElementById("back-to-top");
+      if (backToTop) {
+        backToTop.addEventListener("click", function (e) {
+          e.preventDefault();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      }
+
+      onScroll();
+      window.addEventListener("scroll", onScroll, { passive: true });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  })();
+</script>

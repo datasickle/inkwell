@@ -1,6 +1,9 @@
 ---
-import site from "../../site.json";
+import Head from "../components/Head.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
 import "../styles/global.css";
+import site from "../../site.json";
 
 interface Props {
   title?: string;
@@ -8,42 +11,19 @@ interface Props {
   type?: string;
 }
 
-const { title, description, type = "website" } = Astro.props;
-const pageTitle = title ? `${title} — ${site.title}` : site.title;
-const pageDesc = description || site.description;
-const canonical = Astro.site
-  ? new URL(Astro.url.pathname, Astro.site).href
-  : Astro.url.pathname;
+const { title, description, type } = Astro.props;
 ---
 
 <!doctype html>
 <html lang={site.lang}>
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{pageTitle}</title>
-    <meta name="description" content={pageDesc} />
-    <link rel="canonical" href={canonical} />
-    <link rel="alternate" type="application/rss+xml" title={site.title} href="/rss.xml" />
-    <meta property="og:title" content={pageTitle} />
-    <meta property="og:description" content={pageDesc} />
-    <meta property="og:type" content={type} />
-    <meta property="og:locale" content="zh_TW" />
-    <meta name="color-scheme" content="light dark" />
+    <Head title={title} description={description} type={type} />
   </head>
   <body>
-    <div class="shell">
-      <header class="site-header">
-        <a class="brand" href="/">{site.title}</a>
-        <p class="tagline">{site.description}</p>
-      </header>
-      <main>
-        <slot />
-      </main>
-      <footer class="site-footer">
-        <span>© {new Date().getFullYear()} {site.author}</span>
-        <a href="/rss.xml">RSS</a>
-      </footer>
-    </div>
+    <Header />
+    <main>
+      <slot />
+    </main>
+    <Footer />
   </body>
 </html>
