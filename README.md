@@ -4,20 +4,22 @@ Astro 静态博客 + 写作台（**inkwell editor**）。**内容只有一份真
 站点由云端构建，写作台有网页版和 Android App 两个入口，写完点「发布」直接提交进仓库。
 
 ```
-写作台（网页 / App）  ──GitHub API──▶  GitHub 仓库  ──自动构建──▶  EdgeOne 站点
+写作台（网页 / App）  ──GitHub API──▶  GitHub 仓库  ──自动构建──▶  Cloudflare Pages
 ```
 
 ## 线上地址
 
 | 入口 | 地址 |
 | --- | --- |
-| 博客 | https://inkwell-unbc2szi.edgeone.dev/ |
-| 写作台（网页版） | https://inkwell-unbc2szi.edgeone.dev/app/ |
-| RSS | https://inkwell-unbc2szi.edgeone.dev/rss.xml |
+| 博客 | https://datasickle-blog.pages.dev/ |
+| 写作台（网页版） | https://datasickle-blog.pages.dev/app/ |
+| RSS | https://datasickle-blog.pages.dev/rss.xml |
 | 仓库 | https://github.com/datasickle/inkwell |
 
-域名由 EdgeOne 分配给项目，**不随部署变化**，推送到 `main` 后约 60~90 秒自动更新。
+托管在 Cloudflare Pages，域名由平台分配（`*.pages.dev`），**不随部署变化**，推送到 `main` 后约 1~2 分钟自动更新。免费、不用备案、不用买域名。
 
+> 旧的 EdgeOne 项目仍保留着（`inkwell-unbc2szi.edgeone.dev`），可随时回退。但它的项目级域名对大陆访客不稳定（官方规则：大陆网络访问须用 3 小时有效的预览链接，超时 401），所以主力迁到了 Cloudflare。
+>
 > 若以后绑定自定义域名，记得同步改 `site.json` 里的 `url`，否则 RSS 与 canonical 会指向旧地址。
 
 ## 目录
@@ -77,8 +79,22 @@ git push -u origin main
 
 ### 3. 部署站点
 
-EdgeOne 控制台关联仓库 → 构建命令 `npm run build` → 输出目录 `dist`。
-构建完会得到 `xxx.edgeone.site`，写作台在 **`/app/`** 路径下（构建时自动复制进产物）。
+Cloudflare Dashboard → Workers & Pages → **Create application** → 页面最底部的 `Continue to Pages`（legacy 入口）→ **Import an existing Git repository** → 选中本仓库。
+
+构建配置：
+
+| 字段 | 值 |
+| --- | --- |
+| Framework preset | `Astro` |
+| Build command | `npm install --include=dev && npm run build` |
+| Build output directory | `dist` |
+| 环境变量 | `NODE_VERSION` = `22.22.2` |
+
+`--include=dev` 不能省：Tailwind、typography、astro 都在 devDependencies，云端按 production 模式安装会缺包。
+
+站点地址是 `datasickle-blog.pages.dev`，写作台在 **`/app/`** 路径下（构建时自动复制进产物）。
+
+> 别走 Workers 那条新入口：它的地址是 `*.workers.dev`，在大陆被 DNS 污染，基本打不开。
 
 ## 写作台怎么用
 
