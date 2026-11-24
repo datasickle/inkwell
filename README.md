@@ -88,13 +88,40 @@ Cloudflare Dashboard → Workers & Pages → **Create application** → 页面�
 | Framework preset | `Astro` |
 | Build command | `npm install --include=dev && npm run build` |
 | Build output directory | `dist` |
-| 环境变量 | `NODE_VERSION` = `22.22.2` |
+| 环境变量 | `NODE_VERSION` = `22.22.2`<br>`APP_PASS` = 写作台密码（见下节） |
 
 `--include=dev` 不能省：Tailwind、typography、astro 都在 devDependencies，云端按 production 模式安装会缺包。
 
 站点地址是 `datasickle-blog.pages.dev`，写作台在 **`/app/`** 路径下（构建时自动复制进产物）。
 
 > 别走 Workers 那条新入口：它的地址是 `*.workers.dev`，在大陆被 DNS 污染，基本打不开。
+
+## 写作台访问控制
+
+`/app/` 默认**不公开**，由一个 Pages Function 中间件（`functions/_middleware.js`）挡住，用 HTTP Basic Auth 校验。博客、文章、标签、归档、搜索、RSS 全部照常公开，只有写作台需要登录。
+
+密码来自环境变量，不进仓库：
+
+| 变量 | 必填 | 说明 |
+| --- | --- | --- |
+| `APP_PASS` | 是 | 访问密码。**未设置时写作台一律返回 503**，不会因为漏配而放行 |
+| `APP_USER` | 否 | 用户名，默认 `datasickle` |
+
+改完变量要**重新部署一次**才生效（Deployments → 最新一条 → Retry deployment），环境变量是在部署时注入的。
+
+本地跑测试不用起运行时：
+
+```bash
+npm run test:auth    # 54 条：路径判定、凭据解析、放行/拦截、漏配密码
+```
+
+注意事项：
+
+- 用户名和密码请用 **ASCII**，Basic Auth 的解码不做多字节处理。
+- 手机 App 是本地打包的，不经过网络，因此**不受影响**；只有浏览器打开 `/app/` 时才会弹一次登录框。
+- 这层保护挡的是「界面被陌生人打开」。写作台没有后端，GitHub Token 只存在浏览者自己的浏览器里，所以即便有人绕过界面，也拿不到你的发布权限。
+- 想换更强的方案（邮箱验证码、GitHub 登录）可以改用 Cloudflare Access，但它作用于整个主机名，博客会被一起挡住，还得绑定自有域名，因此这里没用。
+
 
 ## 写作台怎么用
 
@@ -217,6 +244,7 @@ draft: false
 
 ```bash
 npm run test:app     # 写作台核心：Markdown、frontmatter、slug、发布链路（打本地假 GitHub）
+npm run test:auth    # 写作台访问控制：路径判定、Basic Auth 解析、放行/拦截
 npm test             # 本地写作台接口
 npm run test:push    # git 推送链路（在临时目录里跑，不碰当前仓库）
 npm run build        # 站点构建
