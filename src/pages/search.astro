@@ -1,0 +1,131 @@
+---
+import Base from "../layouts/Base.astro";
+import Container from "../components/Container.astro";
+---
+
+<Base title="搜索">
+  <Container>
+    <div class="space-y-10">
+      <section class="animate space-y-2">
+        <h1 class="text-2xl font-semibold text-black dark:text-white">搜索</h1>
+        <p id="meta" class="text-sm">共 0 篇</p>
+      </section>
+
+      <input
+        id="q"
+        type="search"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="搜标题、正文、标签…"
+        class="animate w-full rounded-lg border border-black/10 bg-transparent px-4 py-3 text-base outline-none transition-colors duration-300 placeholder:opacity-40 focus:border-black/30 dark:border-white/15 dark:focus:border-white/40"
+      />
+
+      <div id="res" class="search-hit animate space-y-3"></div>
+    </div>
+  </Container>
+</Base>
+
+<style is:global>
+  .search-hit mark {
+    background: rgba(0, 0, 0, 0.14);
+    color: inherit;
+    border-radius: 2px;
+    padding: 0 0.08em;
+  }
+  html.dark .search-hit mark {
+    background: rgba(255, 255, 255, 0.24);
+  }
+</style>
+
+<script>
+  const input = document.getElementById("q");
+  const box = document.getElementById("res");
+  const meta = document.getElementById("meta");
+  let items = [];
+
+  const esc = (s) =>
+    String(s).replace(
+      /[&<>"]/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]
+    );
+
+  function highlight(text, terms) {
+    let out = esc(text);
+    for (const t of terms) {
+      const safe = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (!safe) continue;
+      out = out.replace(new RegExp(safe, "gi"), (m) => `<mark>${m}</mark>`);
+    }
+    return out;
+  }
+
+  // 摘要优先从命中位置附近截，而不是永远从头开始
+  function snippet(item, terms) {
+    const source = item.summary || item.text;
+    let start = 0;
+    const lower = source.toLowerCase();
+    for (const t of terms) {
+      const i = lower.indexOf(t.toLowerCase());
+      if (i >= 0) {
+        start = Math.max(0, i - 24);
+        break;
+      }
+    }
+    const cut = source.slice(start, start + 130);
+    return (start > 0 ? "…" : "") + cut + (source.length > start + 130 ? "…" : "");
+  }
+
+  function render() {
+    const kw = input.value.trim();
+    const terms = kw ? kw.split(/\s+/).filter(Boolean) : [];
+
+    const hits = terms.length
+      ? items.filter((it) => {
+          const hay = `${it.title} ${it.tags.join(" ")} ${it.summary} ${it.text}`.toLowerCase();
+          return terms.every((t) => hay.includes(t.toLowerCase()));
+        })
+      : items;
+
+    meta.textContent = kw ? `找到 ${hits.length} 篇` : `共 ${items.length} 篇`;
+
+    if (!hits.length) {
+      box.innerHTML = `<p class="text-sm">没有找到相关文章，换个词试试。</p>`;
+      return;
+    }
+
+    box.innerHTML = hits
+      .map((it) => {
+        const tags = it.tags.length
+          ? " · " + it.tags.map((t) => esc(t)).join(" / ")
+          : "";
+        const day = new Date(it.date).toLocaleDateString("zh-CN");
+        return `<a href="/${it.id}/" class="block space-y-1 rounded-lg border border-black/10 p-4 transition-colors duration-300 hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/5">
+          <div class="font-semibold">${highlight(it.title, terms)}</div>
+          <div class="text-sm opacity-60">${highlight(snippet(it, terms), terms)}</div>
+          <div class="text-xs opacity-40">${day}${tags}</div>
+        </a>`;
+      })
+      .join("");
+  }
+
+  input.addEventListener("input", () => {
+    render();
+    const url = new URL(location.href);
+    if (input.value.trim()) url.searchParams.set("q", input.value.trim());
+    else url.searchParams.delete("q");
+    history.replaceState(null, "", url);
+  });
+
+  fetch("/search-index.json")
+    .then((r) => r.json())
+    .then((data) => {
+      items = data;
+      const q = new URL(location.href).searchParams.get("q");
+      if (q) input.value = q;
+      render();
+      input.focus();
+    })
+    .catch(() => {
+      box.innerHTML = `<p class="text-sm">索引没加载出来，刷新一下试试。</p>`;
+    });
+</script>

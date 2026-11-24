@@ -10,8 +10,11 @@ const siteConfig = JSON.parse(
 export default defineConfig({
   site: siteConfig.url,
   integrations: [
-    // 写作台 /app 不参与搜索收录
-    sitemap({ filter: (page) => !page.includes('/app') }),
+    // 写作台 /app 与搜索索引不参与搜索收录
+    sitemap({
+      filter: (page) =>
+        !page.includes('/app') && !page.includes('search-index'),
+    }),
   ],
   build: {
     format: 'directory',
