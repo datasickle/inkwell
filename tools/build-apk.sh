@@ -60,10 +60,17 @@ chmod +x gradlew
 echo
 echo "[3/3] 产物"
 APK="$ROOT/android/app/build/outputs/apk/debug/app-debug.apk"
-if [ -f "$APK" ]; then
-  ls -lh "$APK"
-  echo "APK 路径：$APK"
-else
+if [ ! -f "$APK" ]; then
   echo "没有找到 APK，构建可能失败" >&2
   exit 1
 fi
+
+ls -lh "$APK"
+echo "构建产物：$APK"
+
+# 直接覆盖交付目录里那份。以前靠手动 cp，漏过一次会把旧包当新包发出去。
+OUT="${APK_OUT:-/d/android-dev/out/inkwell-1.0-debug.apk}"
+mkdir -p "$(dirname "$OUT")"
+cp "$APK" "$OUT"
+echo "已交付到：$OUT"
+echo "SHA-256 ：$(sha256sum "$OUT" | cut -d' ' -f1)"
