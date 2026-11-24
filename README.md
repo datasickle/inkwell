@@ -7,6 +7,19 @@ Astro 静态博客 + 写作台。**内容只有一份真相：GitHub 仓库里�
 写作台（网页 / App）  ──GitHub API──▶  GitHub 仓库  ──自动构建──▶  EdgeOne 站点
 ```
 
+## 线上地址
+
+| 入口 | 地址 |
+| --- | --- |
+| 博客 | https://inkwell-unbc2szi.edgeone.dev/ |
+| 写作台（网页版） | https://inkwell-unbc2szi.edgeone.dev/app/ |
+| RSS | https://inkwell-unbc2szi.edgeone.dev/rss.xml |
+| 仓库 | https://github.com/datasickle/inkwell |
+
+域名由 EdgeOne 分配给项目，**不随部署变化**，推送到 `main` 后约 60~90 秒自动更新。
+
+> 若以后绑定自定义域名，记得同步改 `site.json` 里的 `url`，否则 RSS 与 canonical 会指向旧地址。
+
 ## 目录
 
 | 路径 | 是什么 |
