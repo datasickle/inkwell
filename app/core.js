@@ -543,6 +543,64 @@ export function b64decode(b64) {
   return new TextDecoder().decode(bytes);
 }
 
+/* ---------- 图片 ---------- */
+
+// 图片落在 public/images/，构建时原样复制到站点根，所以文章里引用 /images/xxx.jpg
+export const IMAGES_DIR = 'public/images';
+export const IMAGE_URL_PREFIX = '/images';
+
+const IMAGE_EXT = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif']);
+
+/**
+ * 图片是二进制，不能走 b64encode（那个先按 UTF-8 编码文本，图片会坏）。
+ * 这里直接把字节转 base64，并按 32KB 分块，避免大图触发调用栈溢出。
+ */
+export function b64encodeBytes(bytes) {
+  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+  if (typeof btoa !== 'function') return Buffer.from(u8).toString('base64');
+  let bin = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < u8.length; i += CHUNK) {
+    bin += String.fromCharCode.apply(null, u8.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
+}
+
+/** 生成不会撞车的文件名：20261124-3f9a1c.jpg */
+export function imageName(ext, date = todayISO(), rand = Math.random) {
+  const clean = String(ext || '').toLowerCase().replace(/^\./, '');
+  const safe = IMAGE_EXT.has(clean) ? (clean === 'jpeg' ? 'jpg' : clean) : 'jpg';
+  const day = String(date || todayISO()).replace(/[^0-9]/g, '');
+  const alphabet = '0123456789abcdef';
+  let tail = '';
+  for (let i = 0; i < 6; i += 1) {
+    const r = Math.min(0.999999, Math.max(0, Number(rand()) || 0));
+    tail += alphabet[Math.floor(r * 16)];
+  }
+  return `${day}-${tail}.${safe}`;
+}
+
+/** 组装 Markdown 图片语法。alt 里的方括号会截断语法，直接去掉。 */
+export function imageMarkdown(url, alt = '') {
+  const href = String(url || '').trim();
+  if (!href) throw new Error('图片地址不能为空');
+  const text = String(alt || '')
+    .replace(/[[\]]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+  return `![${text}](${href.replace(/ /g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29')})`;
+}
+
+/** 从文件名猜一个可读的 alt，手机相册的 IMG_2043 之类也能用 */
+export function altFromFilename(name) {
+  return String(name || '')
+    .replace(/\.[a-z0-9]{1,5}$/i, '')
+    .replace(/[-_]+/g, ' ')
+    .trim()
+    .slice(0, 60);
+}
+
 export class GitHubError extends Error {
   constructor(message, status, payload) {
     super(message);
@@ -618,6 +676,21 @@ export function createGitHub({ owner, repo, branch = 'main', token, apiBase = 'h
     async putFile(path, text, message, sha) {
       const body = { message, content: b64encode(text), branch };
       if (sha) body.sha = sha;
+      const data = await call(`${root}/${path}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return {
+        sha: data?.content?.sha || null,
+        commit: data?.commit?.sha || null,
+        url: data?.commit?.html_url || null,
+      };
+    },
+
+    // 二进制文件（图片）：与 putFile 的唯一区别是不做 UTF-8 编码
+    async putBinary(path, bytes, message) {
+      const body = { message, content: b64encodeBytes(bytes), branch };
       const data = await call(`${root}/${path}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

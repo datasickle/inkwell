@@ -129,6 +129,7 @@
     </div>
 
     <div class="toast" id="toast"></div>
+    <input type="file" id="fileInput" accept="image/*" multiple hidden />
 
     <script type="module">
       import {
@@ -145,6 +146,12 @@
         GitHubError,
         applyFormat,
         continueList,
+        insertBlock,
+        IMAGES_DIR,
+        IMAGE_URL_PREFIX,
+        imageName,
+        imageMarkdown,
+        altFromFilename,
       } from './core.js';
 
       const CFG_KEY = 'inkwell:cfg';
@@ -177,6 +184,7 @@
         btnDelete: document.getElementById('btnDelete'),
         btnBack: document.getElementById('btnBack'),
         btnNew: document.getElementById('btnNew'),
+        fileInput: document.getElementById('fileInput'),
       };
 
       const app = {
@@ -188,6 +196,8 @@
         dirty: false,
         slugTouched: false,
         loading: false,
+        // 本次会话上传过的图：路径 → blob URL，让预览立刻有图，不用等云端构建
+        imageBlobs: {},
       };
 
       /* ---------- 小工具 ---------- */
@@ -288,11 +298,25 @@
 
       /* ---------- 预览 ---------- */
 
+      // App 里是本地打包（webDir），/images/ 会指向设备本地，图直接裂掉。
+      // 网页端在 /app/ 下，/images/ 正好是站点根，本来就对，不需要改。
+      const SITE_ORIGIN = 'https://datasickle-blog.pages.dev';
+
+      function previewHtml(src) {
+        const html = renderMarkdown(src);
+        return html.replace(/src="(\/images\/[^"]+)"/g, (whole, path) => {
+          // 本次刚传的图用 blob，预览立刻有图，不必等云端构建完
+          if (app.imageBlobs[path]) return `src="${app.imageBlobs[path]}"`;
+          if (window.Capacitor) return `src="${SITE_ORIGIN}${path}"`;
+          return whole;
+        });
+      }
+
       let previewTimer = 0;
       function schedulePreview() {
         clearTimeout(previewTimer);
         previewTimer = setTimeout(() => {
-          el.prose.innerHTML = renderMarkdown(el.body.value || '（还没写内容）');
+          el.prose.innerHTML = previewHtml(el.body.value || '（还没写内容）');
         }, 120);
       }
 
@@ -696,12 +720,139 @@
       }
 
       function runFormat(action) {
+        // 图片不再插占位符，直接开文件选择器：选完压缩、上传、回填真实链接
+        if (action === 'image') {
+          if (!app.cfg || !app.cfg.token) {
+            toast('先点右上角 ⚙ 配置仓库');
+            return;
+          }
+          el.fileInput.click();
+          return;
+        }
         const focused = document.activeElement === el.body;
         const len = el.body.value.length;
         const start = focused ? el.body.selectionStart : len;
         const end = focused ? el.body.selectionEnd : len;
         const res = applyFormat(el.body.value, start, end, action);
         if (res) commitEdit(res.value, res.start, res.end);
+      }
+
+      /* ---------- 插图 ---------- */
+
+      // 压到长边 1600 后通常 200~400KB；还超标就再降一档
+      const IMAGE_SOFT_LIMIT = 900 * 1024;
+
+      function extOf(type) {
+        if (type === 'image/png') return 'png';
+        if (type === 'image/gif') return 'gif';
+        if (type === 'image/webp') return 'webp';
+        if (type === 'image/avif') return 'avif';
+        return 'jpg';
+      }
+
+      function loadImage(file) {
+        return new Promise((resolve, reject) => {
+          const url = URL.createObjectURL(file);
+          const img = new Image();
+          img.onload = () => resolve({ img, url });
+          img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('这张图打不开，可能是 HEIC 格式'));
+          };
+          img.src = url;
+        });
+      }
+
+      function drawToBlob(img, maxSide, quality) {
+        const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(1, Math.round(img.naturalWidth * scale));
+        const h = Math.max(1, Math.round(img.naturalHeight * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        return new Promise((resolve, reject) => {
+          canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('图片处理失败'))), 'image/jpeg', quality);
+        });
+      }
+
+      /**
+       * 手机原图动辄 4~8MB，直接提交会让仓库迅速变大、上传也慢。
+       * GIF 不压（压了丢动画），小 PNG 原样保留（避免透明底被填白），其余统一转 JPEG。
+       */
+      async function prepareImage(file) {
+        const type = String(file.type || '');
+        if (type === 'image/gif') {
+          if (file.size > 5 * 1024 * 1024) throw new Error('GIF 请控制在 5MB 内');
+          return { bytes: new Uint8Array(await file.arrayBuffer()), ext: 'gif' };
+        }
+        if (type === 'image/png' && file.size <= 300 * 1024) {
+          return { bytes: new Uint8Array(await file.arrayBuffer()), ext: 'png' };
+        }
+        if (file.size <= 150 * 1024) {
+          return { bytes: new Uint8Array(await file.arrayBuffer()), ext: extOf(type) };
+        }
+
+        const { img, url } = await loadImage(file);
+        try {
+          let blob = await drawToBlob(img, 1600, 0.82);
+          if (blob.size > IMAGE_SOFT_LIMIT) blob = await drawToBlob(img, 1200, 0.72);
+          if (blob.size > 5 * 1024 * 1024) throw new Error('压缩后仍然太大，换张图试试');
+          return { bytes: new Uint8Array(await blob.arrayBuffer()), ext: 'jpg' };
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      }
+
+      function insertMarkdown(md) {
+        const ta = el.body;
+        const focused = document.activeElement === ta;
+        const pos = focused ? ta.selectionStart : ta.value.length;
+        const end = focused ? ta.selectionEnd : ta.value.length;
+        const res = insertBlock(ta.value, pos, end, md);
+        commitEdit(res.value, res.start, res.end);
+      }
+
+      async function insertImages(files) {
+        const list = [...files].filter((f) => f && String(f.type).startsWith('image/'));
+        if (!list.length) {
+          toast('这里只能放图片');
+          return;
+        }
+        if (!app.gh) {
+          toast('先点右上角 ⚙ 配置仓库');
+          return;
+        }
+
+        const total = list.length;
+        let done = 0;
+        beginBusy(`上传图片 0/${total}`);
+        try {
+          for (let i = 0; i < total; i += 1) {
+            setState(`上传图片 ${i + 1}/${total}…`);
+            try {
+              const { bytes, ext } = await prepareImage(list[i]);
+              const name = imageName(ext, todayISO());
+              const repoPath = `${IMAGES_DIR}/${name}`;
+              await app.gh.putBinary(repoPath, bytes, `上传图片 ${name}`);
+
+              const url = `${IMAGE_URL_PREFIX}/${name}`;
+              // 这个 blob 只在本会话用于预览，真正的图已经在仓库里了
+              app.imageBlobs[url] = URL.createObjectURL(list[i]);
+              insertMarkdown(imageMarkdown(url, altFromFilename(list[i].name)));
+              done += 1;
+            } catch (err) {
+              toast(`第 ${i + 1} 张失败：${err.message || '上传失败'}`);
+            }
+          }
+          if (done) {
+            toast(`已插入 ${done} 张，发布后约 40 秒上线`);
+            setState(`已插入 ${done} 张图片`);
+          }
+        } finally {
+          endBusy();
+          el.fileInput.value = '';
+        }
       }
 
       /* ---------- 事件 ---------- */
@@ -758,6 +909,45 @@
         schedulePreview();
         if (app.slug) app.dirty = true;
         setState('有未发布的改动', true);
+      });
+
+      /* ---------- 插图的三个入口：选文件 / 粘贴 / 拖入 ---------- */
+
+      el.fileInput.addEventListener('change', () => {
+        if (el.fileInput.files && el.fileInput.files.length) insertImages(el.fileInput.files);
+      });
+
+      // 截图后直接 Ctrl+V
+      el.body.addEventListener('paste', (e) => {
+        const dt = e.clipboardData;
+        if (!dt) return;
+        const files = [];
+        for (const item of dt.items || []) {
+          if (item.kind === 'file' && String(item.type).startsWith('image/')) {
+            const f = item.getAsFile();
+            if (f) files.push(f);
+          }
+        }
+        if (files.length) {
+          e.preventDefault();
+          insertImages(files);
+        }
+      });
+
+      el.body.addEventListener('dragover', (e) => {
+        if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) {
+          e.preventDefault();
+          el.body.classList.add('dropping');
+        }
+      });
+      el.body.addEventListener('dragleave', () => el.body.classList.remove('dropping'));
+      el.body.addEventListener('drop', (e) => {
+        el.body.classList.remove('dropping');
+        const files = [...((e.dataTransfer && e.dataTransfer.files) || [])];
+        if (files.some((f) => String(f.type).startsWith('image/'))) {
+          e.preventDefault();
+          insertImages(files);
+        }
       });
 
       el.title.addEventListener('input', () => {

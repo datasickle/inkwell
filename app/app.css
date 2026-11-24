@@ -434,6 +434,13 @@ button {
   tab-size: 2;
 }
 
+/* 拖图进来时给个明确的落点提示 */
+.body-input.dropping {
+  outline: 2px dashed var(--accent);
+  outline-offset: -8px;
+  background: var(--accent-soft);
+}
+
 /* ---------- 预览 ---------- */
 
 .preview {
