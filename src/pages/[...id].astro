@@ -14,18 +14,26 @@ export async function getStaticPaths() {
   );
   // 与 /tags 共用同一份标签排序，锚点才对得上
   const { anchorOf } = groupByTag(posts);
-  return posts.map((post) => ({
+  return posts.map((post, i) => ({
     params: { id: post.id },
-    props: { post, tagAnchors: anchorOf },
+    props: {
+      post,
+      tagAnchors: anchorOf,
+      // 列表是「新 → 旧」，所以 i-1 是时间上更新的一篇，i+1 是更早的一篇
+      newer: posts[i - 1] ?? null,
+      older: posts[i + 1] ?? null,
+    },
   }));
 }
 
 interface Props {
   post: CollectionEntry<"blog">;
   tagAnchors: Record<string, string>;
+  newer: CollectionEntry<"blog"> | null;
+  older: CollectionEntry<"blog"> | null;
 }
 
-const { post, tagAnchors } = Astro.props;
+const { post, tagAnchors, newer, older } = Astro.props;
 const { Content, headings } = await render(post);
 const { title, date, tags, summary } = post.data;
 
@@ -94,5 +102,191 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
     <article class="animate">
       <Content />
     </article>
+
+    {
+      (older || newer) && (
+        <nav
+          aria-label="上下篇"
+          class="animate mt-16 grid gap-2 border-t border-black/10 pt-8 sm:grid-cols-2 dark:border-white/15"
+        >
+          {older && (
+            <a
+              href={`/${older.id}/`}
+              class="group -mx-3 rounded-lg px-3 py-3 transition-colors duration-300 hover:bg-black/5 dark:hover:bg-white/5 sm:col-start-1"
+            >
+              <span class="flex items-center gap-1.5 text-xs opacity-50">
+                <span aria-hidden="true">←</span> 上一篇
+              </span>
+              <span class="mt-1.5 block text-sm font-medium leading-snug text-black/75 transition-colors group-hover:text-black dark:text-white/75 dark:group-hover:text-white">
+                {older.data.title}
+              </span>
+              <span class="mt-1 block text-xs opacity-40">
+                <FormattedDate date={older.data.date} />
+              </span>
+            </a>
+          )}
+          {newer && (
+            <a
+              href={`/${newer.id}/`}
+              class="group -mx-3 rounded-lg px-3 py-3 transition-colors duration-300 hover:bg-black/5 dark:hover:bg-white/5 sm:col-start-2 sm:text-right"
+            >
+              <span class="flex items-center gap-1.5 text-xs opacity-50 sm:justify-end">
+                下一篇 <span aria-hidden="true">→</span>
+              </span>
+              <span class="mt-1.5 block text-sm font-medium leading-snug text-black/75 transition-colors group-hover:text-black dark:text-white/75 dark:group-hover:text-white">
+                {newer.data.title}
+              </span>
+              <span class="mt-1 block text-xs opacity-40">
+                <FormattedDate date={newer.data.date} />
+              </span>
+            </a>
+          )}
+        </nav>
+      )
+    }
   </Container>
+
+  {/*
+    两处渐进增强，都用原生 DOM 实现，不引任何库：
+    1) 给每个 <pre> 套一层容器并加“复制”按钮，JS 不跑就只是没有按钮，代码块本身照旧
+    2) 点正文图片放大查看，Esc 或点任意处关闭
+  */}
+  <script>
+    /* ---------- 代码块复制 ---------- */
+
+    async function copyText(text: string) {
+      // 优先用异步剪贴板 API。注意它可能「存在但被拒」：
+      // 页面未聚焦、权限被策略拦、部分浏览器隐私模式下都会 reject，
+      // 所以必须 try 一次再降级，不能只判断 API 存不存在。
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return;
+        } catch {
+          /* 落到下面的兜底 */
+        }
+      }
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.cssText = "position:fixed;top:0;left:-9999px;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try {
+        ok = document.execCommand("copy");
+      } finally {
+        document.body.removeChild(ta);
+      }
+      if (!ok) throw new Error("copy failed");
+    }
+
+    function enhanceCodeBlocks() {
+      document.querySelectorAll<HTMLPreElement>("article pre").forEach((pre) => {
+        // 已经处理过就跳过，避免重复插入按钮
+        if (pre.parentElement?.classList.contains("code-block")) return;
+
+        const box = document.createElement("div");
+        box.className = "code-block";
+        pre.replaceWith(box);
+        box.appendChild(pre);
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "code-copy";
+        btn.textContent = "复制";
+        btn.setAttribute("aria-label", "复制这段代码");
+
+        let timer = 0;
+        btn.addEventListener("click", async () => {
+          const code = pre.querySelector("code")?.innerText ?? pre.innerText;
+          try {
+            await copyText(code.replace(/\n$/, ""));
+            btn.textContent = "已复制";
+            btn.classList.add("done");
+          } catch {
+            btn.textContent = "失败";
+          }
+          clearTimeout(timer);
+          timer = window.setTimeout(() => {
+            btn.textContent = "复制";
+            btn.classList.remove("done");
+          }, 1600);
+        });
+
+        box.appendChild(btn);
+      });
+    }
+
+    /* ---------- 图片放大 ---------- */
+
+    function setupLightbox() {
+      const article = document.querySelector("article");
+      if (!article) return;
+
+      let overlay: HTMLDivElement | null = null;
+      let scrollY = 0;
+
+      function close() {
+        if (!overlay) return;
+        overlay.classList.remove("on");
+        document.documentElement.classList.remove("lightbox-open");
+        document.body.style.top = "";
+        window.scrollTo(0, scrollY);
+        const dying = overlay;
+        overlay = null;
+        window.setTimeout(() => dying.remove(), 220);
+      }
+
+      function open(src: string, alt: string) {
+        if (overlay) return;
+        scrollY = window.scrollY;
+
+        overlay = document.createElement("div");
+        overlay.className = "lightbox";
+        overlay.setAttribute("role", "dialog");
+        overlay.setAttribute("aria-modal", "true");
+        overlay.setAttribute("aria-label", alt || "图片预览");
+
+        const img = document.createElement("img");
+        img.src = src;
+        img.alt = alt;
+        overlay.appendChild(img);
+
+        // 点背景或图片本身都关闭
+        overlay.addEventListener("click", close);
+        document.body.appendChild(overlay);
+        // 下一帧再加 .on，否则不会触发过渡
+        requestAnimationFrame(() => overlay?.classList.add("on"));
+
+        // 锁滚动：fixed + 负 top 保持视觉位置不跳
+        document.documentElement.classList.add("lightbox-open");
+        document.body.style.top = `-${scrollY}px`;
+      }
+
+      article.addEventListener("click", (e) => {
+        const img = (e.target as HTMLElement).closest("img");
+        if (!img) return;
+        // 太小的图（表情、图标）放大没意义
+        if (img.naturalWidth < 200) return;
+        e.preventDefault();
+        open(img.currentSrc || img.src, img.alt);
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") close();
+      });
+    }
+
+    function boot() {
+      enhanceCodeBlocks();
+      setupLightbox();
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", boot);
+    } else {
+      boot();
+    }
+  </script>
 </Base>

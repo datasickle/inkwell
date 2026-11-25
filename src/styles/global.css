@@ -137,6 +137,134 @@ html.scrolled #back-to-top {
   @apply opacity-100 pointer-events-auto;
 }
 
+/* ------------------------------------------------------------------
+   代码块复制按钮
+   外层 .code-block 只为给按钮提供定位上下文，pre 保留自己的滚动条。
+   pre 的上下 margin 会被 typography 插件加上，挪到外层统一控制，
+   否则按钮会跟着 margin 一起偏移。
+   ------------------------------------------------------------------ */
+.code-block {
+  position: relative;
+  margin-block: 1.75em;
+}
+
+.code-block > pre {
+  margin: 0;
+}
+
+.code-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  padding: 5px 9px;
+  font-size: 12px;
+  line-height: 1;
+  font-family: inherit;
+  color: rgb(0 0 0 / 0.55);
+  background: rgb(255 255 255 / 0.88);
+  border: 1px solid rgb(0 0 0 / 0.12);
+  border-radius: 6px;
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.code-block:hover .code-copy,
+.code-copy:focus-visible {
+  opacity: 1;
+}
+
+.code-copy:hover {
+  color: rgb(0 0 0 / 0.85);
+  border-color: rgb(0 0 0 / 0.25);
+}
+
+.code-copy.done {
+  color: rgb(21 128 61);
+  border-color: rgb(21 128 61 / 0.35);
+}
+
+html.dark .code-copy {
+  color: rgb(255 255 255 / 0.55);
+  background: rgb(23 23 23 / 0.82);
+  border-color: rgb(255 255 255 / 0.16);
+}
+
+html.dark .code-copy:hover {
+  color: rgb(255 255 255 / 0.9);
+  border-color: rgb(255 255 255 / 0.3);
+}
+
+html.dark .code-copy.done {
+  color: rgb(74 222 128);
+  border-color: rgb(74 222 128 / 0.35);
+}
+
+/* 触屏没有 hover，按钮直接常显 */
+@media (hover: none) {
+  .code-copy {
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------------
+   图片放大
+   ------------------------------------------------------------------ */
+article img {
+  cursor: zoom-in;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4vmin;
+  background: rgb(10 10 10 / 0.92);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  cursor: zoom-in;
+}
+
+.lightbox.on {
+  opacity: 1;
+}
+
+.lightbox img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
+  box-shadow: 0 24px 70px rgb(0 0 0 / 0.55);
+  transform: scale(0.97);
+  transition: transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.lightbox.on img {
+  transform: scale(1);
+}
+
+/* 打开时锁住背景滚动：body 改 fixed 并回填负 top，位置不跳 */
+html.lightbox-open,
+html.lightbox-open body {
+  overflow: hidden;
+}
+
+html.lightbox-open body {
+  position: fixed;
+  width: 100%;
+}
+
+
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -158,5 +286,10 @@ html.scrolled #back-to-top {
     animation: none;
     opacity: 1;
     transform: none;
+  }
+
+  .lightbox,
+  .lightbox img {
+    transition: none;
   }
 }

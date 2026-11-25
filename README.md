@@ -31,7 +31,7 @@ Astro 静态博客 + 写作台（**inkwell editor**）。**内容只有一份真
 | `app/` | 写作台，纯静态，网页和 App 共用同一份代码 |
 | `android/` | Capacitor 生成的原生壳（WebView 加载 `app/`） |
 | `writer/` | 备用的本地写作台（跑在本机、用 git 推送，不需要 token） |
-| `tools/` | 本地服务器、产物复制 |
+| `tools/` | 本地服务器、产物复制、分享卡生成（`make-og.py`） |
 | `tests/` | 三套自测 |
 
 ## 站点样式
@@ -52,6 +52,30 @@ Astro 静态博客 + 写作台（**inkwell editor**）。**内容只有一份真
 3. **淡入改用 CSS 动画**：原版靠 JS 加 `.show` 类，脚本一旦报错整页内容都是透明的；改成 `@keyframes` 后不依赖 JS。
 
 深色模式是 `html.dark` 类 + localStorage 三态（浅色 / 深色 / 跟随系统），切换逻辑内联在 `Head.astro` 的 `<head>` 里，避免深色用户每次打开先闪一下白。
+
+## 阅读体验
+
+| 功能 | 实现 | 说明 |
+| --- | --- | --- |
+| 文章目录 | `[...id].astro` 里读 `headings` | 只收二级、三级；少于 2 条不显示 |
+| 上一篇 / 下一篇 | `getStaticPaths` 里按时间排序取邻位 | 列表是新→旧，所以 `i-1` 更新、`i+1` 更早 |
+| 代码复制 | 运行时给每个 `pre` 套 `.code-block` 并插按钮 | 先试异步剪贴板，**被拒再退回 `execCommand`**（页面未聚焦时前者会 reject） |
+| 图片放大 | 点正文图片弹出遮罩，Esc 或点任意处关闭 | 小于 200px 的图不放大；打开时锁背景滚动 |
+| 分享卡 | `public/og.png`，1200×630 | 见下 |
+
+后两项都是渐进增强：脚本没跑，代码块和图片照样能看，只是少了按钮和放大。
+
+### 分享卡为什么是一张固定的图
+
+原来 `og:image` 指向 `favicon.svg`，微信、Twitter、Facebook 都不接受 SVG，分享出去**完全没有预览图**。
+
+按文章标题动态出图需要中文字体，而 Cloudflare 的构建镜像是 Linux，没有中文字体；把字体（约 17MB）提交进仓库只为一个分享图不划算。所以做成一张统一的品牌卡，本地生成后提交：
+
+```bash
+python tools/make-og.py     # 需要本机有 C:\Windows\Fonts\msyh.ttc
+```
+
+改了站名或简介后重跑一次，然后提交 `public/og.png`。卡片是位图，所以标签里带 `og:image:type` 和宽高，`twitter:card` 用 `summary_large_image`。
 
 ## 第一次配置
 
