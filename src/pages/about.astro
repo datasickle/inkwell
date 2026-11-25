@@ -4,22 +4,32 @@ import Container from "../components/Container.astro";
 import Link from "../components/Link.astro";
 ---
 
-<Base title="关于" description="这是我的博客，随便写点东西。">
+<Base title="关于" description="一个博客，随便写点东西。">
   <Container>
-    <header class="animate max-w-xl">
+    <div class="animate max-w-xl">
       <h1 class="text-2xl font-semibold text-black dark:text-white">关于</h1>
-    </header>
 
-    <div class="animate mt-6 max-w-xl space-y-4 text-[15px] leading-7">
-      <p>
-        这是我的博客。文章都是自己写的，想到什么写什么，没有固定主题，也没有固定更新频率。
-      </p>
-      <p>
-        有时候是把一件事做成的过程，有时候只是随手记下的想法。写得慢，但写下来的都是真想说的。
-      </p>
-      <p class="pt-2">
-        想聊的话，发邮件到
-        <Link href="mailto:datasickle@gmail.com">datasickle@gmail.com</Link>。
+      <p class="mt-6 text-[15px] leading-7">一个博客，随便写点东西。</p>
+
+      <p class="mt-3 flex items-center gap-2 text-[15px] leading-7">
+        <svg
+          class="shrink-0 opacity-50"
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="1.5" y="3" width="13" height="10" rx="1.8"></rect>
+          <path d="M2 4.2 8 8.6l6-4.4"></path>
+        </svg>
+        <Link href="mailto:datasickle@gmail.com" underline={false}>
+          datasickle@gmail.com
+        </Link>
       </p>
     </div>
   </Container>
