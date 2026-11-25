@@ -189,13 +189,21 @@ button {
   padding: 6px;
 }
 
+.item-wrap {
+  position: relative;
+}
+
 .item {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 9px 10px;
+  padding: 9px 34px 9px 10px;
   border-radius: 8px;
   line-height: 1.45;
+  /* 长按时不要弹系统选择/菜单，那是我们的删除按钮该干的事 */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .item:hover {
@@ -204,6 +212,56 @@ button {
 
 .item.active {
   background: var(--accent-soft);
+}
+
+/* 删除按钮：桌面 hover 出现，触屏长按出现 */
+.item-del {
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  color: var(--muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease, color 0.14s ease, background 0.14s ease;
+}
+
+.item-del svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (hover: hover) {
+  .item-wrap:hover .item-del {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.item-wrap.armed .item {
+  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+}
+
+.item-wrap.armed .item-del {
+  opacity: 1;
+  pointer-events: auto;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.item-del:active {
+  transform: translateY(-50%) scale(0.94);
 }
 
 .item .t {

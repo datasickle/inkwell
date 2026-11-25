@@ -362,10 +362,17 @@
             const active = it.slug === app.slug ? ' active' : '';
             const dot = draft ? '<span class="dot"></span>' : '';
             const tags = it.tags && it.tags.length ? `<span>${it.tags[0]}</span>` : '';
-            return `<button class="item${active}" data-slug="${it.slug}">
-              <span class="t">${escapeHtml(it.title || it.slug)}</span>
-              <span class="m">${dot}<span>${stampLabel(it.date)}</span>${tags}</span>
-            </button>`;
+            const label = escapeHtml(it.title || it.slug);
+            // 删除按钮必须和 .item 平级：button 里不能嵌 button
+            return `<div class="item-wrap">
+              <button class="item${active}" data-slug="${it.slug}">
+                <span class="t">${label}</span>
+                <span class="m">${dot}<span>${stampLabel(it.date)}</span>${tags}</span>
+              </button>
+              <button class="item-del" data-del="${it.slug}" title="删除这篇" aria-label="删除《${label}》">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 5.4h7.2M6.7 5.4V4.1h2.6v1.3M5.6 5.4l.4 6.5h4l.4-6.5"/></svg>
+              </button>
+            </div>`;
           })
           .join('');
       }
@@ -605,34 +612,75 @@
         }
       }
 
-      async function removePost() {
-        if (!app.gh || !app.sha || !app.slug) {
-          toast('这篇还没发布到仓库');
+      /**
+       * 按 slug 删除，不再依赖“先在编辑器里把文章读进来”。
+       * 列表项本身就带着 path，sha 现取现用（列表里的 sha 可能是几轮刷新前的）。
+       */
+      async function deletePostBySlug(slug) {
+        if (!app.gh || !slug) return;
+        const meta = app.items.find((it) => it.slug === slug);
+        if (!meta) {
+          toast('列表里找不到这篇，先点刷新');
           return;
         }
-        if (!confirm(`确定删除《${el.title.value || app.slug}》？这会同时从仓库删掉。`)) return;
-        setBtnBusy(el.btnDelete, true, '删除中…');
+        const title = meta.title || slug;
+        if (!confirm(`确定删除《${title}》？\n\n会从仓库删掉 ${meta.path}，云端随后重新构建，站点上就看不到了。`)) return;
+
         beginBusy('正在删除…');
         try {
-          await app.gh.deleteFile(`${app.cfg.dir}/${app.slug}.md`, app.sha, `删除《${el.title.value || app.slug}》`);
-          clearDraft(app.slug);
-          app.items = app.items.filter((it) => it.slug !== app.slug);
-          app.sha = null;
-          app.slug = '';
-          el.btnDelete.disabled = true;
+          let sha = meta.sha;
+          try {
+            sha = (await app.gh.getFile(meta.path)).sha;
+          } catch (err) {
+            // 远程已经没了（比如另一台设备删过），那就只清本地
+            if (err.status !== 404) throw err;
+          }
+          if (sha) await app.gh.deleteFile(meta.path, sha, `删除《${title}》`);
+
+          clearDraft(slug);
+          app.items = app.items.filter((it) => it.slug !== slug);
+          const cache = readCache();
+          if (cache[meta.path]) {
+            delete cache[meta.path];
+            writeCache(cache);
+          }
+
+          // 删的正好是编辑器里打开着的这篇：退回列表，别让内容留在框里再被发回来
+          if (app.slug === slug) {
+            app.slug = '';
+            app.sha = null;
+            app.dirty = false;
+            el.slug.value = '';
+            el.btnDelete.disabled = true;
+            fillEditor({ title: '', date: nowStamp(), tags: [], body: '' });
+            document.body.classList.remove('view-edit');
+            document.body.classList.add('view-list');
+          }
+
           renderList();
-          document.body.classList.remove('view-edit');
-          document.body.classList.add('view-list');
           setState('已删除');
           toast('已从仓库删除');
         } catch (err) {
           setState('删除失败', true);
           toast(err.message || '删除失败');
         } finally {
+          endBusy();
+        }
+      }
+
+      async function removePost() {
+        if (!app.sha || !app.slug) {
+          toast('这篇还没发布到仓库');
+          return;
+        }
+        const slug = app.slug;
+        setBtnBusy(el.btnDelete, true, '删除中…');
+        try {
+          await deletePostBySlug(slug);
+        } finally {
           setBtnBusy(el.btnDelete, false);
           // 删成功后 app.sha 已清空，按钮要重新禁用；失败则保持可用
           el.btnDelete.disabled = !app.sha;
-          endBusy();
         }
       }
 
@@ -860,10 +908,97 @@
 
       /* ---------- 事件 ---------- */
 
-      el.items.addEventListener('click', (e) => {
-        const btn = e.target.closest('.item');
-        if (btn) openPost(btn.dataset.slug);
+      /* ---------- 列表：点击打开 / 长按删除 ---------- */
+
+      const LONG_PRESS_MS = 460;
+
+      function disarmItems() {
+        el.items.querySelectorAll('.item-wrap.armed').forEach((n) => n.classList.remove('armed'));
+      }
+
+      function armItem(wrap) {
+        disarmItems();
+        wrap.classList.add('armed');
+      }
+
+      // 长按出删除按钮。触屏用计时器，桌面用右键，两边都能到同一个按钮。
+      let pressTimer = 0;
+      let pressFrom = null;
+      let suppressClick = false;
+      let suppressTimer = 0;
+
+      function cancelPress() {
+        clearTimeout(pressTimer);
+        pressTimer = 0;
+        pressFrom = null;
+      }
+
+      el.items.addEventListener(
+        'touchstart',
+        (e) => {
+          const wrap = e.target.closest('.item-wrap');
+          if (!wrap) return;
+          cancelPress();
+          const t = e.touches[0];
+          pressFrom = { x: t.clientX, y: t.clientY };
+          pressTimer = window.setTimeout(() => {
+            suppressClick = true; // 松手后别把这篇顺手打开
+            clearTimeout(suppressTimer);
+            suppressTimer = window.setTimeout(() => (suppressClick = false), 700);
+            armItem(wrap);
+            if (navigator.vibrate) navigator.vibrate(22);
+          }, LONG_PRESS_MS);
+        },
+        { passive: true }
+      );
+
+      el.items.addEventListener(
+        'touchmove',
+        (e) => {
+          if (!pressFrom) return;
+          const t = e.touches[0];
+          if (Math.hypot(t.clientX - pressFrom.x, t.clientY - pressFrom.y) > 8) cancelPress();
+        },
+        { passive: true }
+      );
+      el.items.addEventListener('touchend', cancelPress);
+      el.items.addEventListener('touchcancel', cancelPress);
+
+      el.items.addEventListener('contextmenu', (e) => {
+        const wrap = e.target.closest('.item-wrap');
+        if (!wrap) return;
+        e.preventDefault();
+        armItem(wrap);
       });
+
+      el.items.addEventListener('click', (e) => {
+        // 删除按钮永远优先，不受长按防误触标记影响
+        const del = e.target.closest('[data-del]');
+        if (del) {
+          suppressClick = false;
+          disarmItems();
+          deletePostBySlug(del.dataset.del);
+          return;
+        }
+        if (suppressClick) {
+          suppressClick = false;
+          return;
+        }
+        const btn = e.target.closest('.item');
+        if (btn) {
+          disarmItems();
+          openPost(btn.dataset.slug);
+        }
+      });
+
+      // 点空白处收起删除按钮
+      document.addEventListener(
+        'pointerdown',
+        (e) => {
+          if (!e.target.closest('.item-wrap.armed')) disarmItems();
+        },
+        true
+      );
 
       el.search.addEventListener('input', renderList);
       el.btnNew.addEventListener('click', newPost);
