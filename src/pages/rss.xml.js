@@ -1,5 +1,6 @@
 import { getCollection } from "astro:content";
 import site from "../../site.json";
+import { excerptOf } from "../lib/format";
 
 const ESCAPES = {
   "&": "&amp;",
@@ -30,7 +31,10 @@ export async function GET(context) {
         `      <link>${xmlEscape(url)}</link>`,
         `      <guid isPermaLink="true">${xmlEscape(url)}</guid>`,
         `      <pubDate>${post.data.date.toUTCString()}</pubDate>`,
-        `      <description>${xmlEscape(post.data.summary ?? "")}</description>`,
+        `      <description>${xmlEscape(
+          // 没写 summary 就取正文前 200 字的纯文本，否则阅读器里只剩标题
+          post.data.summary || excerptOf(post.body, 200)
+        )}</description>`,
         "    </item>",
       ].join("\n");
     })
