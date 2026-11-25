@@ -227,7 +227,7 @@ App 里预览走的是线上地址（`SITE_ORIGIN` 常量在 `app/index.html`）
 bash tools/build-apk.sh
 ```
 
-产物：`android/app/build/outputs/apk/debug/app-debug.apk`，同时复制一份到 `D:\android-dev\out\inkwell-1.0-debug.apk`。
+产物：`android/app/build/outputs/apk/debug/app-debug.apk`，同时复制一份到 `D:\android-dev\out\inkwell-<版本号>-debug.apk`。文件名跟随 `android/app/build.gradle` 里的 `versionName`（当前 `1.2`），不用手改脚本。
 传手机安装即可（需允许「安装未知来源应用」）。增量构建十几秒，全量约 8 分钟。
 
 工具链全在 D 盘，没动系统环境：
