@@ -59,7 +59,9 @@
 }
 
 @layer components {
-  header {
+  /* 只作用于页面顶栏。写成 `body > header` 而不是 `header`，
+     否则页面里自己写的 <header> 会被连带套上固定定位和毛玻璃。 */
+  body > header {
     @apply fixed top-0 left-0 right-0 z-50 py-5;
     @apply bg-neutral-50/75 dark:bg-neutral-900/25;
     @apply backdrop-blur-sm saturate-200;
@@ -71,6 +73,18 @@
 
   footer {
     @apply py-5 text-sm;
+  }
+
+  /* 导航加到 6 项后，380px 以下一行放不下（品牌 111 + 导航 211 + 间距）。
+     窄屏去掉「/」分隔符，改用间距区分，避免页头折成两行把正文压得更低。 */
+  @media (max-width: 379px) {
+    body > header nav {
+      column-gap: 0.5rem;
+    }
+
+    body > header nav > span {
+      display: none;
+    }
   }
 
   /* 正文排版。刻意没有沿用 Nano 的 prose-p:font-serif：
