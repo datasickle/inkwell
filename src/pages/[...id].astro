@@ -42,6 +42,11 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
 ---
 
 <Base title={title} description={summary} type="article">
+  {/* 阅读进度条：固定在页头之上，宽度由脚本按正文进度缩放 */}
+  <div class="read-progress" aria-hidden="true">
+    <span id="read-progress-bar"></span>
+  </div>
+
   <Container>
     <div class="animate">
       <BackToPrev href="/">全部文章</BackToPrev>
@@ -80,22 +85,30 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
 
     {
       toc.length >= 2 && (
-        <nav
-          aria-label="目录"
-          class="animate mb-10 space-y-2 border-l-2 border-black/10 pl-4 text-sm dark:border-white/15"
-        >
-          {toc.map((h) => (
-            <a
-              href={`#${h.slug}`}
-              class:list={[
-                "block leading-snug opacity-70 transition-colors duration-300 hover:text-black hover:opacity-100 dark:hover:text-white",
-                h.depth === 3 && "pl-4 text-[13px] opacity-55",
-              ]}
-            >
-              {h.text}
-            </a>
-          ))}
-        </nav>
+        <>
+          <nav
+            id="toc"
+            aria-label="目录"
+            class="animate toc relative mb-10 space-y-2 border-l-2 border-black/10 pl-4 text-sm dark:border-white/15"
+          >
+            {/* 跟随高亮的滑块，位置由脚本按当前小节移动 */}
+            <span class="toc-marker" aria-hidden="true" />
+            {toc.map((h) => (
+              <a
+                href={`#${h.slug}`}
+                data-target={h.slug}
+                class:list={[
+                  "toc-link block leading-snug opacity-70 transition-colors duration-300 hover:text-black hover:opacity-100 dark:hover:text-white",
+                  h.depth === 3 && "pl-4 text-[13px] opacity-55",
+                ]}
+              >
+                {h.text}
+              </a>
+            ))}
+          </nav>
+          {/* 宽屏时目录被抽到右侧固定，用它补回原来的间距 */}
+          <div class="toc-gap" aria-hidden="true" />
+        </>
       )
     }
 
@@ -356,10 +369,111 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
       });
     }
 
+    /* ---------- 阅读进度 + 目录跟随 ---------- */
+
+    function setupReading() {
+      const article = document.querySelector<HTMLElement>("article");
+      const bar = document.getElementById("read-progress-bar");
+      if (!article || !bar) return;
+
+      const toc = document.getElementById("toc");
+      const marker = toc?.querySelector<HTMLElement>(".toc-marker") ?? null;
+      const pairs = toc
+        ? Array.from(toc.querySelectorAll<HTMLAnchorElement>("a[data-target]"))
+            .map((a) => ({
+              a,
+              h: document.getElementById(a.dataset.target ?? ""),
+            }))
+            .filter((p): p is { a: HTMLAnchorElement; h: HTMLElement } => !!p.h)
+        : [];
+
+      // 固定页头会盖住锚点标题，这个位移既是判定线，也和 CSS 的 scroll-margin-top 对齐
+      const OFFSET = 96;
+      let active = -1;
+
+      function paint() {
+        // 先读完所有几何信息，再统一写样式，避免同一帧里强制重排多次
+        const scrollY = window.scrollY;
+        const vh = window.innerHeight;
+        const rect = article.getBoundingClientRect();
+        const passed = unitsPassed();
+        const maxScroll = document.documentElement.scrollHeight - vh;
+        const atBottom = scrollY >= maxScroll - 8;
+
+        // 从「正文顶端越过判定线」开始计，到页面滚到底正好满格。
+        // 终点取可滚动范围的底部而不是正文底部：正文后面还有分享、上下篇和页脚，
+        // 若按正文底部算，文章一读完进度条就满了，最后一段完全没反馈。
+        const startY = rect.top + scrollY - OFFSET;
+        const endY = maxScroll;
+        let p: number;
+        if (endY - startY <= 0) p = scrollY >= startY ? 1 : 0;
+        else p = (scrollY - startY) / (endY - startY);
+        if (p < 0) p = 0;
+        if (p > 1) p = 1;
+        bar.style.transform = `scaleX(${p})`;
+
+        if (!pairs.length) return;
+
+        let idx = -1;
+        for (let i = 0; i < passed.length; i += 1) {
+          if (passed[i]) idx = i;
+          else break;
+        }
+        // 刚进正文还没读到第一节时，先认第一节，免得整段都没有落点
+        if (idx < 0 && rect.top <= OFFSET) idx = 0;
+        // 末节太短，滚到底也越不过判定线，到底就点亮最后一节
+        if (atBottom) idx = pairs.length - 1;
+        if (idx === active) return;
+        active = idx;
+
+        pairs.forEach(({ a }, i) => {
+          a.classList.toggle("is-active", i === idx);
+          if (i === idx) a.setAttribute("aria-current", "location");
+          else a.removeAttribute("aria-current");
+        });
+
+        const cur = pairs[idx]?.a;
+        if (!marker) return;
+        if (!cur) {
+          marker.style.opacity = "0";
+          return;
+        }
+        marker.style.opacity = "1";
+        marker.style.height = `${cur.offsetHeight}px`;
+        marker.style.transform = `translateY(${cur.offsetTop}px)`;
+      }
+
+      // 只读一次：哪些标题已经越过判定线
+      function unitsPassed() {
+        const out: boolean[] = [];
+        for (const { h } of pairs) {
+          out.push(h.getBoundingClientRect().top <= OFFSET);
+        }
+        return out;
+      }
+
+      let ticking = false;
+      function onScroll() {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          ticking = false;
+          paint();
+        });
+      }
+
+      window.addEventListener("scroll", onScroll, { passive: true });
+      window.addEventListener("resize", onScroll);
+      // 图片、字体加载完正文高度会变，收尾再校准一次
+      window.addEventListener("load", paint);
+      paint();
+    }
+
     function boot() {
       enhanceCodeBlocks();
       setupLightbox();
       setupShare();
+      setupReading();
     }
 
     if (document.readyState === "loading") {

@@ -307,6 +307,99 @@ html.lightbox-open body {
 }
 
 
+/* ------------------------------------------------------------------
+   固定页头大约 68px，锚点跳转时给标题留出空间，否则标题会被压住看不见。
+   数值与文章页脚本里的 OFFSET 保持一致，目录高亮的判定线才对得上。
+   ------------------------------------------------------------------ */
+article :is(h1, h2, h3, h4) {
+  scroll-margin-top: 96px;
+}
+
+/* ------------------------------------------------------------------
+   阅读进度条：贴在最顶部，2px 细线，不干扰页头毛玻璃
+   ------------------------------------------------------------------ */
+.read-progress {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 60;
+  height: 2px;
+  background: transparent;
+  pointer-events: none;
+}
+
+.read-progress > span {
+  display: block;
+  height: 100%;
+  background: rgb(0 0 0 / 0.38);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+html.dark .read-progress > span {
+  background: rgb(255 255 255 / 0.45);
+}
+
+/* ------------------------------------------------------------------
+   目录跟随高亮
+   nav 本身有 2px 左边线，滑块盖在同一位置上做“走到哪一节”的指示；
+   滑块用绝对定位，比给每个链接加伪元素更稳（三级标题会额外缩进）。
+   ------------------------------------------------------------------ */
+.toc-marker {
+  position: absolute;
+  top: 0;
+  left: -2px;
+  width: 2px;
+  border-radius: 1px;
+  background: rgb(0 0 0 / 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1),
+    height 0.22s cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0.2s ease;
+}
+
+html.dark .toc-marker {
+  background: rgb(255 255 255 / 0.5);
+}
+
+/* 覆盖 Tailwind 的 opacity-70 / opacity-55，当前小节回到纯黑/纯白 */
+.toc-link.is-active {
+  color: #000;
+  opacity: 1;
+}
+
+html.dark .toc-link.is-active {
+  color: #fff;
+  opacity: 1;
+}
+
+/* 目录在正文上方，正文一长它就先滚出视口，高亮等于看不见。
+   宽屏把它抽到正文右侧固定，整篇都能看到自己在哪一节；
+   窄屏没有富余横向空间，保持原来的行内位置。 */
+.toc-gap {
+  display: none;
+}
+
+@media (min-width: 1100px) {
+  .toc {
+    position: fixed;
+    top: 118px;
+    /* 正文列 640px（含 20px 内边距），再留 28px 间隙 */
+    left: calc(50% + 348px);
+    width: 200px;
+    margin-bottom: 0;
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .toc-gap {
+    display: block;
+    height: 2.5rem;
+  }
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;
