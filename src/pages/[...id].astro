@@ -103,11 +103,38 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
       <Content />
     </article>
 
+    {/*
+      分享按钮先渲染成 hidden，由脚本判断能力后再显示：
+      没有 JS 的环境不该出现一个点了没反应的按钮。
+    */}
+    <div class="animate mt-12 flex flex-wrap items-center gap-x-3 gap-y-2">
+      <button type="button" id="share-btn" class="share-btn" hidden>
+        <svg
+          viewBox="0 0 24 24"
+          class="size-4 fill-none stroke-current"
+          stroke-width="1.7"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M4 13v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6"></path>
+          <polyline points="16 7 12 3 8 7"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        <span id="share-label">分享</span>
+      </button>
+      <span
+        id="share-tip"
+        class="text-xs opacity-0 transition-opacity duration-300"
+        role="status"
+        aria-live="polite"></span>
+    </div>
+
     {
       (older || newer) && (
         <nav
           aria-label="上下篇"
-          class="animate mt-16 grid gap-2 border-t border-black/10 pt-8 sm:grid-cols-2 dark:border-white/15"
+          class="animate mt-10 grid gap-2 border-t border-black/10 pt-8 sm:grid-cols-2 dark:border-white/15"
         >
           {older && (
             <a
@@ -278,9 +305,58 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
       });
     }
 
+    /* ---------- 分享 ---------- */
+
+    function setupShare() {
+      const btn = document.getElementById("share-btn");
+      const label = document.getElementById("share-label");
+      const tip = document.getElementById("share-tip");
+      if (!btn || !label || !tip) return;
+
+      const title = document.title;
+      // 当前文章地址。带上已有的 location.href 是为了保住可能存在的锚点
+      const url = window.location.href;
+      const canNative = typeof navigator.share === "function";
+
+      // 有系统分享（手机、部分桌面 Chrome）就说「分享」，否则老实写「复制链接」，
+      // 不然点下去什么面板都不弹，会以为坏了。
+      label.textContent = canNative ? "分享" : "复制链接";
+      btn.hidden = false;
+
+      let timer = 0;
+      function flash(text: string) {
+        tip.textContent = text;
+        tip.style.opacity = "1";
+        clearTimeout(timer);
+        timer = window.setTimeout(() => {
+          tip.style.opacity = "0";
+        }, 2000);
+      }
+
+      btn.addEventListener("click", async () => {
+        if (canNative) {
+          try {
+            await navigator.share({ title, text: title, url });
+            return;
+          } catch (err) {
+            // 用户自己取消，什么都不做；
+            // 其它失败（比如页面没聚焦、被策略拦）继续走复制，别让按钮白点
+            if ((err as DOMException)?.name === "AbortError") return;
+          }
+        }
+        try {
+          await copyText(url);
+          flash("链接已复制");
+        } catch {
+          flash("复制失败，请手动复制地址栏");
+        }
+      });
+    }
+
     function boot() {
       enhanceCodeBlocks();
       setupLightbox();
+      setupShare();
     }
 
     if (document.readyState === "loading") {
