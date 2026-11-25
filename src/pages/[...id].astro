@@ -233,11 +233,20 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
         box.appendChild(pre);
 
         // Shiki 把语言写在 pre[data-language] 上，挪到外层给 CSS 当标签用。
-        // text/plaintext 显示出来没有意义，跳过。
-        const lang = (pre.dataset.language ?? "").trim();
-        if (lang && !["text", "txt", "plaintext", "plain"].includes(lang)) {
-          box.dataset.lang = lang;
-        }
+        // 少数语言缩写看着别扭，给一个显示名；plaintext 显示出来没意义，跳过。
+        const LANG_LABEL: Record<string, string> = {
+          csharp: "C#",
+          javascript: "JS",
+          typescript: "TS",
+          bash: "Shell",
+          powershell: "PS",
+          markdown: "MD",
+          plaintext: "",
+          text: "",
+        };
+        const raw = (pre.dataset.language ?? "").trim().toLowerCase();
+        const label = raw ? (LANG_LABEL[raw] ?? raw) : "";
+        if (label) box.dataset.lang = label;
 
         // 一两行的命令挂上行号反而碍眼，四行以上才加
         const lines = pre.querySelectorAll<HTMLElement>(".line");

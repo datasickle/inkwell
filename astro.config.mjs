@@ -42,6 +42,44 @@ function lineHighlight() {
   };
 }
 
+/**
+ * 代码块语言别名。
+ * Shiki 只认规范的 lang 名，写 ```C# 会被当成纯文本：既没有高亮，
+ * 也不会有 data-language，标签自然就不显示。这里在 markdown 阶段
+ * 先把常见写法折成规范名。
+ */
+const LANG_ALIAS = new Map(
+  Object.entries({
+    'c#': 'csharp',
+    csharp: 'csharp',
+    cs: 'csharp',
+    shell: 'bash',
+    sh: 'bash',
+    console: 'bash',
+    zsh: 'bash',
+    ps: 'powershell',
+    ps1: 'powershell',
+    py: 'python',
+    yml: 'yaml',
+    md: 'markdown',
+    text: 'plaintext',
+    txt: 'plaintext',
+  })
+);
+
+function normalizeFenceLang() {
+  return (tree) => {
+    const walk = (node) => {
+      if (node.type === 'code' && typeof node.lang === 'string') {
+        const next = LANG_ALIAS.get(node.lang.trim().toLowerCase());
+        if (next) node.lang = next;
+      }
+      if (Array.isArray(node.children)) node.children.forEach(walk);
+    };
+    walk(tree);
+  };
+}
+
 export default defineConfig({
   site: siteConfig.url,
   integrations: [
@@ -56,7 +94,7 @@ export default defineConfig({
   },
   markdown: {
     // 修复中文标点紧贴 ** 时粗体不生效（CommonMark 定界符规则）
-    remarkPlugins: [remarkCjkFriendly],
+    remarkPlugins: [normalizeFenceLang, remarkCjkFriendly],
     shikiConfig: {
       themes: {
         light: 'rose-pine-dawn',

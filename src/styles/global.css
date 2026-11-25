@@ -184,7 +184,6 @@ html.scrolled #back-to-top {
   font-size: 11px;
   line-height: 1;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: rgb(0 0 0 / 0.32);
   pointer-events: none;
 }
