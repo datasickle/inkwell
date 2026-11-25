@@ -10,7 +10,8 @@ import { groupByTag } from "../lib/tags";
 
 export async function getStaticPaths() {
   const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
-    (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+    (a, b) =>
+      b.data.date.valueOf() - a.data.date.valueOf() || a.id.localeCompare(b.id)
   );
   // 与 /tags 共用同一份标签排序，锚点才对得上
   const { anchorOf } = groupByTag(posts);
@@ -161,7 +162,7 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
                 {older.data.title}
               </span>
               <span class="mt-1 block text-xs opacity-40">
-                <FormattedDate date={older.data.date} />
+                <FormattedDate date={older.data.date} variant="short" />
               </span>
             </a>
           )}
@@ -177,7 +178,7 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
                 {newer.data.title}
               </span>
               <span class="mt-1 block text-xs opacity-40">
-                <FormattedDate date={newer.data.date} />
+                <FormattedDate date={newer.data.date} variant="short" />
               </span>
             </a>
           )}
@@ -231,6 +232,17 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
         pre.replaceWith(box);
         box.appendChild(pre);
 
+        // Shiki 把语言写在 pre[data-language] 上，挪到外层给 CSS 当标签用。
+        // text/plaintext 显示出来没有意义，跳过。
+        const lang = (pre.dataset.language ?? "").trim();
+        if (lang && !["text", "txt", "plaintext", "plain"].includes(lang)) {
+          box.dataset.lang = lang;
+        }
+
+        // 一两行的命令挂上行号反而碍眼，四行以上才加
+        const lines = pre.querySelectorAll<HTMLElement>(".line");
+        if (lines.length >= 4) box.classList.add("with-lines");
+
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "code-copy";
@@ -239,7 +251,11 @@ const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
 
         let timer = 0;
         btn.addEventListener("click", async () => {
-          const code = pre.querySelector("code")?.innerText ?? pre.innerText;
+          // 按行读 textContent 再拼：行号是 ::before 生成的，
+          // 不在 DOM 里，但 innerText 会把它算进去，用 .line 拼最干净。
+          const code = lines.length
+            ? Array.from(lines, (l) => l.textContent ?? "").join("\n")
+            : (pre.querySelector("code")?.textContent ?? pre.textContent ?? "");
           try {
             await copyText(code.replace(/\n$/, ""));
             btn.textContent = "已复制";

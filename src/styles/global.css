@@ -166,6 +166,96 @@ html.scrolled #back-to-top {
   margin: 0;
 }
 
+/* ------------------------------------------------------------------
+   代码块增强：语言标签 / 行号 / 指定行高亮
+
+   语言名和行数都是运行时由脚本从 Shiki 的输出里读出来的，所以这些
+   样式全部挂在 .code-block 的附加类上：JS 不跑时退回原来的纯代码块，
+   不会出现空的标签栏或错位的行号。
+   ------------------------------------------------------------------ */
+
+/* 语言标签：左上角的小字，压在代码上方留出的内边距里 */
+.code-block[data-lang]::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 9px;
+  left: 12px;
+  z-index: 1;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(0 0 0 / 0.32);
+  pointer-events: none;
+}
+
+.code-block[data-lang] > pre {
+  padding-top: 2.1rem;
+}
+
+html.dark .code-block[data-lang]::before {
+  color: rgb(255 255 255 / 0.34);
+}
+
+/* 行号：用 ::before + counter 生成，不进 DOM，所以复制时不会带上数字
+   （复制逻辑也刻意只读 .line 的 textContent） */
+.code-block.with-lines > pre > code {
+  counter-reset: code-line;
+}
+
+.code-block.with-lines > pre .line::before {
+  counter-increment: code-line;
+  content: counter(code-line);
+  display: inline-block;
+  width: 2.4em;
+  margin-right: 0.9em;
+  text-align: right;
+  color: rgb(0 0 0 / 0.22);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html.dark .code-block.with-lines > pre .line::before {
+  color: rgb(255 255 255 / 0.24);
+}
+
+/* 指定行高亮：```js {2,5-7}
+   .line 是 inline 的，直接给背景只覆盖文字宽度，所以改成 inline-block
+   再撑满一行，并用 box-shadow 把底色向两侧补到 pre 的内边距里。 */
+.code-block .line.highlighted {
+  display: inline-block;
+  min-width: 100%;
+  background: rgb(0 0 0 / 0.05);
+  box-shadow:
+    -1em 0 0 rgb(0 0 0 / 0.05),
+    1em 0 0 rgb(0 0 0 / 0.05);
+}
+
+html.dark .code-block .line.highlighted {
+  background: rgb(255 255 255 / 0.06);
+  box-shadow:
+    -1em 0 0 rgb(255 255 255 / 0.06),
+    1em 0 0 rgb(255 255 255 / 0.06);
+}
+
+/* 横向滚动的滚动条收细一点，默认那条太抢眼 */
+article pre {
+  scrollbar-width: thin;
+}
+
+article pre::-webkit-scrollbar {
+  height: 8px;
+}
+
+article pre::-webkit-scrollbar-thumb {
+  background: rgb(0 0 0 / 0.18);
+  border-radius: 999px;
+}
+
+html.dark article pre::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.2);
+}
+
 .code-copy {
   position: absolute;
   top: 8px;

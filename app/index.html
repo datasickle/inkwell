@@ -35,7 +35,7 @@
         <div class="meta">
           <input class="title-input" id="title" placeholder="标题" />
           <div class="meta-row">
-            <input class="chip-input date" id="date" type="date" />
+            <input class="chip-input date" id="date" type="datetime-local" step="1" />
             <input class="chip-input slug" id="slug" placeholder="路径" spellcheck="false" />
           </div>
           <div class="meta-row">
@@ -138,6 +138,9 @@
         excerpt,
         normalizeTags,
         todayISO,
+        nowStamp,
+        toLocalInput,
+        stampLabel,
         slugFor,
         assertSlug,
         buildPostFile,
@@ -361,7 +364,7 @@
             const tags = it.tags && it.tags.length ? `<span>${it.tags[0]}</span>` : '';
             return `<button class="item${active}" data-slug="${it.slug}">
               <span class="t">${escapeHtml(it.title || it.slug)}</span>
-              <span class="m">${dot}<span>${it.date || ''}</span>${tags}</span>
+              <span class="m">${dot}<span>${stampLabel(it.date)}</span>${tags}</span>
             </button>`;
           })
           .join('');
@@ -390,7 +393,7 @@
                 tags: hit && hit.sha === f.sha ? hit.tags : [],
               };
             })
-            .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+            .sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0));
 
           renderList();
 
@@ -413,7 +416,7 @@
             renderList();
           }
           writeCache(cache);
-          app.items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+          app.items.sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0));
           renderList();
           setState(`共 ${app.items.length} 篇`);
         } catch (err) {
@@ -431,7 +434,7 @@
 
       function fillEditor({ title, date, tags, body }) {
         el.title.value = title || '';
-        el.date.value = date || todayISO();
+        el.date.value = toLocalInput(date || nowStamp());
         el.tags.value = (tags || []).join(', ');
         el.body.value = body || '';
         schedulePreview();
@@ -485,7 +488,7 @@
         el.btnDelete.disabled = true;
         el.slug.value = '';
         el.search.value = '';
-        fillEditor({ title: '', date: todayISO(), tags: [], body: '' });
+        fillEditor({ title: '', date: nowStamp(), tags: [], body: '' });
         app.dirty = false;
         document.body.classList.remove('view-list');
         document.body.classList.add('view-edit');
@@ -500,7 +503,7 @@
           app.slug = el.slug.value.trim();
           return app.slug;
         }
-        const s = slugFor(el.title.value, el.date.value || todayISO());
+        const s = slugFor(el.title.value, el.date.value || nowStamp());
         el.slug.value = s;
         app.slug = s;
         return s;
@@ -952,7 +955,7 @@
 
       el.title.addEventListener('input', () => {
         if (!app.slugTouched) {
-          const s = slugFor(el.title.value, el.date.value || todayISO());
+          const s = slugFor(el.title.value, el.date.value || nowStamp());
           el.slug.value = el.title.value.trim() ? s : '';
         }
         if (app.slug) app.dirty = true;
@@ -1030,7 +1033,7 @@
       /* ---------- 启动 ---------- */
 
       (function boot() {
-        el.date.value = todayISO();
+        el.date.value = toLocalInput(nowStamp());
         schedulePreview();
         app.cfg = readCfg();
         if (!app.cfg || !app.cfg.token) {

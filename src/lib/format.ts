@@ -1,14 +1,13 @@
+import { fmtDot, fmtMonthDay } from "./datetime";
+
+// 这两个都按东八区折算，别改成 date.getMonth()：
+// 构建机在 UTC，凌晨发布会被算成前一天
 export function formatDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}.${m}.${d}`;
+  return fmtDot(date);
 }
 
 export function formatDay(date: Date): string {
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${m}.${d}`;
+  return fmtMonthDay(date);
 }
 
 export function readingTime(body: string | undefined): number {

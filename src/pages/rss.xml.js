@@ -15,7 +15,8 @@ function xmlEscape(value) {
 
 export async function GET(context) {
   const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
-    (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+    (a, b) =>
+    b.data.date.valueOf() - a.data.date.valueOf() || a.id.localeCompare(b.id)
   );
 
   const origin = context.site?.href.replace(/\/$/, "") ?? site.url;

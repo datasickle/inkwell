@@ -302,8 +302,10 @@ button {
   font-size: 12px;
 }
 
+/* 从 type=date 换成 datetime-local 后要显示「年/月/日 时:分:秒」，
+   126px 只够到日期就被裁掉，时间完全看不见 */
 .chip-input.date {
-  width: 126px;
+  width: 208px;
   flex: none;
 }
 

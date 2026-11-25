@@ -4,15 +4,18 @@ import Container from "../components/Container.astro";
 import ArrowCard from "../components/ArrowCard.astro";
 import { getCollection } from "astro:content";
 import type { CollectionEntry } from "astro:content";
+import { yearOf } from "../lib/datetime";
 import site from "../../site.json";
 
+// 新的在上面。日期精确到秒后基本不会撞，真要撞了用 id 兜底，保证每次构建顺序一致
 const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
-  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+  (a, b) =>
+    b.data.date.valueOf() - a.data.date.valueOf() || a.id.localeCompare(b.id)
 );
 
 const groups: { year: number; items: CollectionEntry<"blog">[] }[] = [];
 for (const post of posts) {
-  const year = post.data.date.getFullYear();
+  const year = yearOf(post.data.date);
   const last = groups[groups.length - 1];
   if (last && last.year === year) {
     last.items.push(post);

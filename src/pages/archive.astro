@@ -4,14 +4,16 @@ import Container from "../components/Container.astro";
 import { getCollection } from "astro:content";
 import type { CollectionEntry } from "astro:content";
 import { formatDay } from "../lib/format";
+import { yearOf } from "../lib/datetime";
 
 const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
-  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+  (a, b) =>
+    b.data.date.valueOf() - a.data.date.valueOf() || a.id.localeCompare(b.id)
 );
 
 const groups: { year: number; items: CollectionEntry<"blog">[] }[] = [];
 for (const post of posts) {
-  const year = post.data.date.getFullYear();
+  const year = yearOf(post.data.date);
   const last = groups[groups.length - 1];
   if (last && last.year === year) last.items.push(post);
   else groups.push({ year, items: [post] });

@@ -6,7 +6,8 @@ import { excerptOf } from "../lib/format";
 // 不走 Pagefind 的原因：它对中文按字切分，召回噪声大；中文直接子串匹配更准。
 export const GET: APIRoute = async () => {
   const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
-    (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+    (a, b) =>
+    b.data.date.valueOf() - a.data.date.valueOf() || a.id.localeCompare(b.id)
   );
 
   const items = posts.map((post) => ({

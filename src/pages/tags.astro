@@ -6,7 +6,8 @@ import { formatDate } from "../lib/format";
 import { groupByTag } from "../lib/tags";
 
 const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
-  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+  (a, b) =>
+    b.data.date.valueOf() - a.data.date.valueOf() || a.id.localeCompare(b.id)
 );
 
 const { groups } = groupByTag(posts);

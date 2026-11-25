@@ -493,6 +493,61 @@ export function todayISO(d = new Date()) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** 只取日期部分。slug 和图片名不能带冒号，否则过不了 SAFE_SLUG */
+export function datePart(value) {
+  return String(value || '').slice(0, 10);
+}
+
+/** 本机时区偏移，形如 +08:00 */
+export function localOffset(d = new Date()) {
+  const off = -d.getTimezoneOffset();
+  const sign = off >= 0 ? '+' : '-';
+  const abs = Math.abs(off);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
+}
+
+/** 当前时刻，带时区偏移：2026-11-25T10:30:00+08:00 */
+export function nowStamp(d = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return `${date}T${time}${localOffset(d)}`;
+}
+
+/**
+ * 写进 frontmatter 前补上时区。
+ * 不带偏移的时间在不同机器上会被解释成不同时刻——构建机在 UTC，
+ * 本机在 +08:00，差八小时会让「凌晨发的文章」在首页换到前一天。
+ * 纯日期（老文章）原样返回，不擅自改写成 00:00:00。
+ */
+export function withOffset(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return raw;
+  if (/(?:Z|[+-]\d{2}:\d{2})$/.test(raw)) return raw;
+  const m = raw.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(:\d{2})?$/);
+  if (!m) return raw;
+  return `${m[1]}T${m[2]}${m[3] || ':00'}${localOffset()}`;
+}
+
+/** 把 frontmatter 里的时间转成 <input type="datetime-local"> 能吃的格式 */
+export function toLocalInput(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const m = raw.match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2})(?::(\d{2}))?)?/);
+  if (!m) return '';
+  return `${m[1]}T${m[2] || '00:00'}:${m[3] || '00'}`;
+}
+
+/** 列表里显示的短时间：11-25 10:30 */
+export function stampLabel(value) {
+  const m = String(value || '').match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}:\d{2}))?/
+  );
+  if (!m) return String(value || '');
+  return m[4] ? `${m[2]}-${m[3]} ${m[4]}` : `${m[2]}-${m[3]}`;
+}
+
 function hash36(str) {
   let h = 2166136261;
   for (let k = 0; k < str.length; k += 1) {
@@ -503,7 +558,7 @@ function hash36(str) {
 }
 
 export function slugFor(title, date = todayISO()) {
-  const stamp = String(date).replace(/-/g, '') || todayISO().replace(/-/g, '');
+  const stamp = datePart(date).replace(/-/g, '') || todayISO().replace(/-/g, '');
   const ascii = String(title || '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -570,7 +625,7 @@ export function b64encodeBytes(bytes) {
 export function imageName(ext, date = todayISO(), rand = Math.random) {
   const clean = String(ext || '').toLowerCase().replace(/^\./, '');
   const safe = IMAGE_EXT.has(clean) ? (clean === 'jpeg' ? 'jpg' : clean) : 'jpg';
-  const day = String(date || todayISO()).replace(/[^0-9]/g, '');
+  const day = datePart(date || todayISO()).replace(/[^0-9]/g, '');
   const alphabet = '0123456789abcdef';
   let tail = '';
   for (let i = 0; i < 6; i += 1) {
@@ -723,7 +778,7 @@ export function postPath(slug) {
 export function buildPostFile({ title, date, tags, draft, summary, body, slug }) {
   const meta = {
     title: String(title || slug || '未命名').trim(),
-    date: String(date || todayISO()),
+    date: withOffset(String(date || nowStamp())),
     tags: normalizeTags(tags).join(', '),
     draft: draft ? 'true' : 'false',
   };
