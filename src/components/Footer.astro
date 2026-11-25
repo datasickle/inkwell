@@ -2,8 +2,10 @@
 import Container from "./Container.astro";
 import BackToTop from "./BackToTop.astro";
 import site from "../../site.json";
+import { yearOf } from "../lib/datetime";
 
-const year = new Date().getFullYear();
+// 走 datetime.ts 折算东八区：构建机在 UTC，元旦那 8 小时里 getFullYear() 会少一年
+const year = yearOf(new Date());
 ---
 
 <footer class="animate">
