@@ -16,3 +16,6 @@ android/capacitor-cordova-android-plugins/
 .shot-*.png
 .shots/
 .edgetmp/
+
+# 交接文档（本地用，不进仓库）
+.handoff/
