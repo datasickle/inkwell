@@ -69,7 +69,14 @@ ls -lh "$APK"
 echo "构建产物：$APK"
 
 # 直接覆盖交付目录里那份。以前靠手动 cp，漏过一次会把旧包当新包发出去。
-OUT="${APK_OUT:-/d/android-dev/out/inkwell-1.0-debug.apk}"
+# 交付名跟 build.gradle 的 versionName 走，免得改了版本号名字还停在 1.0。
+VERSION="$(grep -m1 'versionName' "$ROOT/android/app/build.gradle" \
+  | sed -E 's/.*versionName[[:space:]]+"([^"]+)".*/\1/')"
+if [ -z "$VERSION" ]; then
+  echo "读不到 versionName，检查 android/app/build.gradle" >&2
+  exit 1
+fi
+OUT="${APK_OUT:-/d/android-dev/out/inkwell-${VERSION}-debug.apk}"
 mkdir -p "$(dirname "$OUT")"
 cp "$APK" "$OUT"
 echo "已交付到：$OUT"
