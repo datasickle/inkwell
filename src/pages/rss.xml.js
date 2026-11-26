@@ -61,6 +61,9 @@ export async function GET(context) {
           `      <link>${xmlEscape(url)}</link>`,
           `      <guid isPermaLink="true">${xmlEscape(url)}</guid>`,
           `      <pubDate>${post.data.date.toUTCString()}</pubDate>`,
+          // 作者名：RSS 2.0 的 <author> 必须是「邮箱 (名字)」，没邮箱就别硬编；
+          // dc:creator 就是纯名字，Feedly / Inoreader / NetNewsWire 都认这个
+          `      <dc:creator>${xmlEscape(site.author)}</dc:creator>`,
           `      <description>${xmlEscape(
             // 没写 summary 就用正文前 200 字，别让描述长到把列表撑爆
             post.data.summary || excerptOf(post.body, 200)
@@ -77,7 +80,7 @@ export async function GET(context) {
   ).join("\n");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>${xmlEscape(site.title)}</title>
     <link>${xmlEscape(origin)}</link>
