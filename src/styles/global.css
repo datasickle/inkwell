@@ -747,3 +747,23 @@ html.dark .theme-icon-dark {
 html.dark #theme-system-button[aria-pressed="true"] {
   background: rgb(255 255 255 / 0.12);
 }
+
+/* 导航里当前所在的那一栏：墨色压实，下划线做实，其余项保持 60% 灰 */
+header nav a[aria-current="page"] {
+  color: rgb(0 0 0 / 0.88);
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+header nav a[aria-current="page"]:hover {
+  color: rgb(0 0 0 / 1);
+}
+
+html.dark header nav a[aria-current="page"] {
+  color: rgb(255 255 255 / 0.92);
+}
+
+html.dark header nav a[aria-current="page"]:hover {
+  color: rgb(255 255 255 / 1);
+}

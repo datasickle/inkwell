@@ -2,6 +2,23 @@
 import Container from "./Container.astro";
 import Link from "./Link.astro";
 import site from "../../site.json";
+
+// 当前路径决定导航高亮。文章详情页也算「文章」，因为那是同一栏内容。
+const path = Astro.url.pathname.replace(/\/+$/, "");
+const first = path.split("/").filter(Boolean)[0] ?? "";
+const sections = ["notes", "tags", "archive", "search", "about"];
+const isSection = sections.includes(first);
+const isAsset = first === "rss.xml" || first === "app" || first === "og";
+
+const items = [
+  { href: "/", label: "文章", active: !isSection && !isAsset },
+  { href: "/notes/", label: site.notesLabel, active: first === "notes" },
+  { href: "/tags/", label: "标签", active: first === "tags" },
+  { href: "/archive/", label: "归档", active: first === "archive" },
+  { href: "/search/", label: "搜索", active: first === "search" },
+  { href: "/about/", label: "关于", active: first === "about" },
+  { href: "/rss.xml", label: "rss", active: false },
+];
 ---
 
 <header>
@@ -11,19 +28,12 @@ import site from "../../site.json";
         <span class="font-semibold text-[15px] sm:text-base">{site.title}</span>
       </Link>
       <nav class="flex flex-wrap gap-1 text-[13px] sm:text-sm">
-        <Link href="/">文章</Link>
-        <span class="opacity-40" aria-hidden="true">{"/"}</span>
-        <Link href="/notes/">{site.notesLabel}</Link>
-        <span class="opacity-40" aria-hidden="true">{"/"}</span>
-        <Link href="/tags/">标签</Link>
-        <span class="opacity-40" aria-hidden="true">{"/"}</span>
-        <Link href="/archive/">归档</Link>
-        <span class="opacity-40" aria-hidden="true">{"/"}</span>
-        <Link href="/search/">搜索</Link>
-        <span class="opacity-40" aria-hidden="true">{"/"}</span>
-        <Link href="/about/">关于</Link>
-        <span class="opacity-40" aria-hidden="true">{"/"}</span>
-        <Link href="/rss.xml">rss</Link>
+        {items.map((item, i) => (
+          <>
+            {i > 0 && <span class="opacity-40" aria-hidden="true">{"/"}</span>}
+            <Link href={item.href} ariaCurrent={item.active ? "page" : undefined}>{item.label}</Link>
+          </>
+        ))}
       </nav>
     </div>
   </Container>
