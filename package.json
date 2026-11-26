@@ -6,7 +6,7 @@
   "description": "个人博客：Astro 静态站 + 写作台（网页 / Android App），内容存 GitHub",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && node tools/copy-app.mjs",
+    "build": "node tools/optimize-images.mjs && astro build && node tools/copy-app.mjs",
     "preview": "astro preview",
     "write": "node writer/server.mjs",
     "app:dev": "node tools/dev-server.mjs",

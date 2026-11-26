@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import remarkCjkFriendly from 'remark-cjk-friendly';
+import headingAnchor from './tools/rehype-heading-anchor.mjs';
+import optimizeImages from './tools/rehype-optimize-images.mjs';
 
 const siteConfig = JSON.parse(
   fs.readFileSync(new URL('./site.json', import.meta.url), 'utf8')
@@ -95,6 +97,8 @@ export default defineConfig({
   markdown: {
     // 修复中文标点紧贴 ** 时粗体不生效（CommonMark 定界符规则）
     remarkPlugins: [normalizeFenceLang, remarkCjkFriendly],
+    // 标题锚点自己定 id（Astro 随后只补没 id 的），图片则换成构建期压好的 WebP
+    rehypePlugins: [headingAnchor, optimizeImages],
     shikiConfig: {
       themes: {
         light: 'rose-pine-dawn',

@@ -14,34 +14,70 @@ function xmlEscape(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ESCAPES[char]);
 }
 
+/**
+ * 取正文 HTML 给 content:encoded。
+ * 优先用 Astro 已经渲染好的结果（跟页面上的完全一致）；
+ * 万一取不到（渲染顺序原因），退回到自己跑一遍 markdown 处理器。
+ */
+async function bodyHtml(post) {
+  const ready = post.rendered?.html;
+  if (typeof ready === "string" && ready.trim()) return ready;
+
+  try {
+    const { createMarkdownProcessor } = await import("@astrojs/markdown-remark");
+    const processor = await createMarkdownProcessor({});
+    const result = await processor.render(post.body ?? "");
+    return result.code ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** 站内相对地址在阅读器里打不开，统一补成绝对地址。 */
+function absolutize(html, origin) {
+  return html
+    .replace(/\s+srcset="[^"]*"/g, "")
+    .replace(/(src|href)="\/(?!\/)/g, `$1="${origin}/`);
+}
+
 export async function GET(context) {
   const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
     (a, b) =>
-    b.data.date.valueOf() - a.data.date.valueOf() || a.id.localeCompare(b.id)
+      b.data.date.valueOf() - a.data.date.valueOf() || a.id.localeCompare(b.id)
   );
 
   const origin = context.site?.href.replace(/\/$/, "") ?? site.url;
 
-  const items = posts
-    .map((post) => {
-      const url = `${origin}/${post.id}/`;
-      return [
-        "    <item>",
-        `      <title>${xmlEscape(post.data.title)}</title>`,
-        `      <link>${xmlEscape(url)}</link>`,
-        `      <guid isPermaLink="true">${xmlEscape(url)}</guid>`,
-        `      <pubDate>${post.data.date.toUTCString()}</pubDate>`,
-        `      <description>${xmlEscape(
-          // 没写 summary 就取正文前 200 字的纯文本，否则阅读器里只剩标题
-          post.data.summary || excerptOf(post.body, 200)
-        )}</description>`,
-        "    </item>",
-      ].join("\n");
-    })
-    .join("\n");
+  const items = (
+    await Promise.all(
+      posts.map(async (post) => {
+        const url = `${origin}/${post.id}/`;
+        const html = absolutize(await bodyHtml(post), origin);
+        const cdata = html.split("]]>").join("]]]]><![CDATA[>");
+
+        return [
+          "    <item>",
+          `      <title>${xmlEscape(post.data.title)}</title>`,
+          `      <link>${xmlEscape(url)}</link>`,
+          `      <guid isPermaLink="true">${xmlEscape(url)}</guid>`,
+          `      <pubDate>${post.data.date.toUTCString()}</pubDate>`,
+          `      <description>${xmlEscape(
+            // 没写 summary 就用正文前 200 字，别让描述长到把列表撑爆
+            post.data.summary || excerptOf(post.body, 200)
+          )}</description>`,
+          cdata.trim()
+            ? `      <content:encoded><![CDATA[${cdata}]]></content:encoded>`
+            : "",
+          "    </item>",
+        ]
+          .filter(Boolean)
+          .join("\n");
+      })
+    )
+  ).join("\n");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>${xmlEscape(site.title)}</title>
     <link>${xmlEscape(origin)}</link>

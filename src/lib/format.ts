@@ -28,3 +28,16 @@ export function excerptOf(body: string | undefined, limit = 110): string {
     .trim();
   return plain.length > limit ? `${plain.slice(0, limit)}…` : plain;
 }
+
+/**
+ * 正文里第一张站内图片的地址（`/images/x.png`）。外链图不算：
+ * 分享卡要读本地文件裁切，外链读不到。
+ */
+export function firstLocalImage(body: string | undefined): string | null {
+  const re = /!\[[^\]]*\]\(([^)\s]+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body ?? ""))) {
+    if (m[1].startsWith("/")) return m[1];
+  }
+  return null;
+}

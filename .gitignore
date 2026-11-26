@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .astro/
+# 构建期生成的 WebP 与清单，源图在 public/images
+public/images/opt/
 .DS_Store
 Thumbs.db
 

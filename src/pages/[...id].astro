@@ -5,7 +5,7 @@ import FormattedDate from "../components/FormattedDate.astro";
 import BackToPrev from "../components/BackToPrev.astro";
 import { getCollection, render } from "astro:content";
 import type { CollectionEntry } from "astro:content";
-import { readingTime } from "../lib/format";
+import { readingTime, firstLocalImage } from "../lib/format";
 import { groupByTag } from "../lib/tags";
 
 export async function getStaticPaths() {
@@ -40,9 +40,19 @@ const { title, date, tags, summary } = post.data;
 
 // 只取二三级标题；少于 2 条就不显示，免得短文的目录占地方
 const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
+
+// 正文有站内配图就用构建期裁的分享卡，没有则回落到全站默认那张
+const ogImage = firstLocalImage(post.body) ? `/og/${post.id}.png` : undefined;
 ---
 
-<Base title={title} description={summary} type="article">
+<Base
+  title={title}
+  description={summary}
+  type="article"
+  ogImage={ogImage}
+  publishedTime={date.toISOString()}
+  tags={tags}
+>
   {/* 阅读进度条：固定在页头之上，宽度由脚本按正文进度缩放 */}
   <div class="read-progress" aria-hidden="true">
     <span id="read-progress-bar"></span>

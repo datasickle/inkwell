@@ -419,6 +419,39 @@ article :is(h1, h2, h3, h4) {
 }
 
 /* ------------------------------------------------------------------
+   标题锚点：# 由 ::after 画出来，节点里没有文字，目录提取标题时才不会带上它。
+   平时是浅灰的，指到标题上才明显一点；手机上点 # 会直接跳到自己身上，
+   所以窄屏干脆隐藏，免得误触。
+   ------------------------------------------------------------------ */
+article :is(h2, h3, h4) .heading-anchor {
+  margin-left: 0.35em;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+article :is(h2, h3, h4) .heading-anchor::after {
+  content: "#";
+  font-weight: 400;
+  color: currentColor;
+}
+
+article :is(h2, h3, h4):hover .heading-anchor,
+article :is(h2, h3, h4) .heading-anchor:focus-visible {
+  opacity: 0.35;
+}
+
+article :is(h2, h3, h4) .heading-anchor:hover {
+  opacity: 0.7;
+}
+
+@media (hover: none) {
+  article :is(h2, h3, h4) .heading-anchor {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------
    阅读进度条：贴在最顶部，2px 细线，不干扰页头毛玻璃
    ------------------------------------------------------------------ */
 .read-progress {
