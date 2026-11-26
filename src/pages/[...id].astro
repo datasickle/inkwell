@@ -52,6 +52,7 @@ const ogImage = firstLocalImage(post.body) ? `/og/${post.id}.png` : undefined;
   ogImage={ogImage}
   publishedTime={date.toISOString()}
   tags={tags}
+  readingPrefs
 >
   {/* 阅读进度条：固定在页头之上，宽度由脚本按正文进度缩放 */}
   <div class="read-progress" aria-hidden="true">

@@ -7,6 +7,13 @@ import { yearOf } from "../lib/datetime";
 
 // 走 datetime.ts 折算东八区：构建机在 UTC，元旦那 8 小时里 getFullYear() 会少一年
 const year = yearOf(new Date());
+
+interface Props {
+  // 只在文章页显示阅读偏好入口：字号行距字体只作用于正文
+  showReadingPrefs?: boolean;
+}
+
+const { showReadingPrefs = false } = Astro.props;
 ---
 
 <footer class="animate">
@@ -21,8 +28,12 @@ const year = yearOf(new Date());
         &copy; {year} {site.author}
       </div>
       <div class="flex flex-wrap gap-1 items-center">
-        <ReadingPrefs />
-        <span class="mx-1 h-4 w-px bg-black/10 dark:bg-white/15" aria-hidden="true"></span>
+        {showReadingPrefs && (
+          <>
+            <ReadingPrefs />
+            <span class="mx-1 h-4 w-px bg-black/10 dark:bg-white/15" aria-hidden="true"></span>
+          </>
+        )}
         <button
           id="light-theme-button"
           aria-label="浅色主题"

@@ -13,22 +13,25 @@ interface Props {
   publishedTime?: string;
   updatedTime?: string;
   tags?: string[];
+  // 阅读偏好（字号/行距/字体）只影响正文，所以只在文章页放出入口
+  readingPrefs?: boolean;
 }
 
-// 原样转交给 Head：页面只需要关心「这篇是什么」，不关心 meta 怎么拼
-const props = Astro.props;
+// readingPrefs 是布局自己的开关，不转交给 Head；
+// 其余字段原样转交：页面只需要关心「这篇是什么」，不关心 meta 怎么拼
+const { readingPrefs = false, ...headProps } = Astro.props;
 ---
 
 <!doctype html>
 <html lang={site.lang}>
   <head>
-    <Head {...props} />
+    <Head {...headProps} />
   </head>
   <body>
     <Header />
     <main>
       <slot />
     </main>
-    <Footer />
+    <Footer showReadingPrefs={readingPrefs} />
   </body>
 </html>
