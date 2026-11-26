@@ -1,0 +1,95 @@
+---
+import Base from "../../layouts/Base.astro";
+import Container from "../../components/Container.astro";
+import BackToPrev from "../../components/BackToPrev.astro";
+import { getCollection, render } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import { partsOf, isoZoned } from "../../lib/datetime";
+import { sortNotes, noteTitle } from "../../lib/notes";
+import site from "../../../site.json";
+
+export async function getStaticPaths() {
+  const notes = sortNotes(await getCollection("notes", ({ data }) => !data.draft));
+  return notes.map((note, i) => ({
+    params: { id: note.id },
+    props: {
+      note,
+      // 列表是「新 → 旧」，i-1 是更近的一条
+      newer: notes[i - 1] ?? null,
+      older: notes[i + 1] ?? null,
+    },
+  }));
+}
+
+interface Props {
+  note: CollectionEntry<"notes">;
+  newer: CollectionEntry<"notes"> | null;
+  older: CollectionEntry<"notes"> | null;
+}
+
+const { note, newer, older } = Astro.props;
+const { Content } = await render(note);
+const label = site.notesLabel;
+
+// 碎片没有 title，页面标题从正文第一句取
+const title = noteTitle(note.body, 30);
+const p = partsOf(note.data.date);
+const stamp = `${p.y}-${p.m}-${p.d} ${p.hh}:${p.mm}`;
+---
+
+<Base
+  title={`${title} · ${label}`}
+  description={title}
+  type="article"
+  publishedTime={note.data.date.toISOString()}
+  tags={note.data.tags}
+  readingPrefs
+>
+  <Container>
+    <div class="animate">
+      <BackToPrev href="/notes/">全部{label}</BackToPrev>
+    </div>
+
+    <div class="my-8 space-y-2">
+      <div class="animate flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm opacity-70">
+        <time datetime={isoZoned(note.data.date)} class="tabular-nums">{stamp}</time>
+        {
+          note.data.tags.length > 0 && (
+            <>
+              <span class="opacity-40">{"/"}</span>
+              <!-- 标签页是按文章组织的，碎片先不跳过去，免得点进去是空页 -->
+              <span>{note.data.tags.join(" / ")}</span>
+            </>
+          )
+        }
+      </div>
+    </div>
+
+    <article class="animate">
+      <Content />
+    </article>
+
+    <nav class="animate mt-14 flex flex-wrap justify-between gap-6 border-t border-black/10 pt-6 text-sm dark:border-white/15">
+      <div class="max-w-[45%] space-y-1">
+        {
+          older && (
+            <>
+              <div class="text-xs opacity-50">上一条</div>
+              <a href={`/notes/${older.id}/`}>{noteTitle(older.body, 34)}</a>
+            </>
+          )
+        }
+      </div>
+      <div class="ml-auto max-w-[45%] space-y-1 text-right">
+        {
+          newer && (
+            <>
+              <div class="text-xs opacity-50">下一条</div>
+              <a href={`/notes/${newer.id}/`}>{noteTitle(newer.body, 34)}</a>
+            </>
+          )
+        }
+      </div>
+    </nav>
+  </Container>
+</Base>

@@ -2,9 +2,12 @@
 import Base from "../layouts/Base.astro";
 import Container from "../components/Container.astro";
 import ArrowCard from "../components/ArrowCard.astro";
+import Link from "../components/Link.astro";
 import { getCollection } from "astro:content";
 import type { CollectionEntry } from "astro:content";
-import { yearOf } from "../lib/datetime";
+import { yearOf, fmtShort } from "../lib/datetime";
+import { excerptOf } from "../lib/format";
+import { sortNotes } from "../lib/notes";
 import site from "../../site.json";
 
 // 新的在上面。日期精确到秒后基本不会撞，真要撞了用 id 兜底，保证每次构建顺序一致
@@ -23,6 +26,11 @@ for (const post of posts) {
     groups.push({ year, items: [post] });
   }
 }
+
+// 首页只露最近三条：多了会把文章列表的节奏打散
+const notes = sortNotes(
+  await getCollection("notes", ({ data }) => !data.draft)
+).slice(0, 3);
 ---
 
 <Base>
@@ -55,6 +63,42 @@ for (const post of posts) {
               </section>
             ))}
           </div>
+        )
+      }
+
+      {
+        notes.length > 0 && (
+          <section class="animate space-y-3">
+            <div class="flex items-baseline justify-between gap-4">
+              <h2 class="text-xs font-semibold tracking-[0.2em] opacity-50">
+                {site.notesLabel}
+              </h2>
+              <Link
+                href="/notes/"
+                underline={false}
+                class="text-xs opacity-55 hover:opacity-100"
+              >
+                全部{site.notesLabel} →
+              </Link>
+            </div>
+            <ul class="flex flex-col divide-y divide-black/10 dark:divide-white/15">
+              {notes.map((note) => (
+                <li>
+                  <a
+                    href={`/notes/${note.id}/`}
+                    class="flex items-baseline gap-4 py-3 text-sm"
+                  >
+                    <span class="shrink-0 tabular-nums text-xs opacity-45">
+                      {fmtShort(note.data.date)}
+                    </span>
+                    <span class="line-clamp-1 opacity-80">
+                      {excerptOf(note.body, 90)}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
         )
       }
     </div>

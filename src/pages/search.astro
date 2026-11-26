@@ -1,6 +1,7 @@
 ---
 import Base from "../layouts/Base.astro";
 import Container from "../components/Container.astro";
+import site from "../../site.json";
 ---
 
 <Base title="搜索">
@@ -20,7 +21,7 @@ import Container from "../components/Container.astro";
         class="animate w-full rounded-lg border border-black/10 bg-transparent px-4 py-3 text-base outline-none transition-colors duration-300 placeholder:opacity-40 focus:border-black/30 dark:border-white/15 dark:focus:border-white/40"
       />
 
-      <div id="res" class="search-hit animate space-y-3"></div>
+      <div id="res" class="search-hit animate space-y-3" data-notes-label={site.notesLabel}></div>
     </div>
   </Container>
 </Base>
@@ -41,6 +42,7 @@ import Container from "../components/Container.astro";
   const input = document.getElementById("q");
   const box = document.getElementById("res");
   const meta = document.getElementById("meta");
+  const notesLabel = box.dataset.notesLabel || "碎片";
   let items = [];
 
   const esc = (s) =>
@@ -86,7 +88,7 @@ import Container from "../components/Container.astro";
         })
       : items;
 
-    meta.textContent = kw ? `找到 ${hits.length} 篇` : `共 ${items.length} 篇`;
+    meta.textContent = kw ? `找到 ${hits.length} 条` : `共 ${items.length} 条`;
 
     if (!hits.length) {
       box.innerHTML = `<p class="text-sm">没有找到相关文章，换个词试试。</p>`;
@@ -99,10 +101,12 @@ import Container from "../components/Container.astro";
           ? " · " + it.tags.map((t) => esc(t)).join(" / ")
           : "";
         const day = new Date(it.date).toLocaleDateString("zh-CN");
-        return `<a href="/${it.id}/" class="block space-y-1 rounded-lg border border-black/10 p-4 transition-colors duration-300 hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/5">
+        // 碎片在结果里标一下，否则一条没有标题的结果看不出是什么
+        const kind = it.type === "note" ? ` · ${esc(notesLabel)}` : "";
+        return `<a href="${esc(it.href || "/" + it.id + "/")}" class="block space-y-1 rounded-lg border border-black/10 p-4 transition-colors duration-300 hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/5">
           <div class="font-semibold">${highlight(it.title, terms)}</div>
           <div class="text-sm opacity-60">${highlight(snippet(it, terms), terms)}</div>
-          <div class="text-xs opacity-40">${day}${tags}</div>
+          <div class="text-xs opacity-40">${day}${kind}${tags}</div>
         </a>`;
       })
       .join("");
