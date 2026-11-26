@@ -726,21 +726,24 @@ html.dark .reading-opt[aria-pressed="true"] {
   background: rgb(255 255 255 / 0.12);
 }
 
-/* theme button: three icons stacked in one button; html[data-theme-mode] picks which shows */
+/* 明暗开关：太阳/月亮两个图标叠在同一个按钮里，按当前外观显示一个 */
 .theme-icon {
   display: none;
 }
 
-.theme-icon-system {
+html:not(.dark) .theme-icon-light {
   display: block;
 }
 
-html[data-theme-mode="light"] .theme-icon-system,
-html[data-theme-mode="dark"] .theme-icon-system {
-  display: none;
+html.dark .theme-icon-dark {
+  display: block;
 }
 
-html[data-theme-mode="light"] .theme-icon-light,
-html[data-theme-mode="dark"] .theme-icon-dark {
-  display: block;
+/* 「跟随系统」单独一个按钮，选中时给点底色 */
+#theme-system-button[aria-pressed="true"] {
+  background: rgb(0 0 0 / 0.06);
+}
+
+html.dark #theme-system-button[aria-pressed="true"] {
+  background: rgb(255 255 255 / 0.12);
 }

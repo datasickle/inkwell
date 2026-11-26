@@ -119,17 +119,20 @@ const jsonLdText = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 <script is:inline>
   (function () {
     var KEY = "theme";
-    // 三个状态轮转：浅色 → 深色 → 跟随系统。页脚只留一个按钮。
+    // 两个按钮：浅色/深色合成一个（点一下翻转），「跟随系统」单独一个
     var MODES = ["light", "dark", "system"];
-    var LABELS = { light: "浅色", dark: "深色", system: "跟随系统" };
 
     function prefersDark() {
       return window.matchMedia("(prefers-color-scheme: dark)").matches;
     }
 
+    function resolveDark(mode) {
+      return mode === "system" ? prefersDark() : mode === "dark";
+    }
+
     function apply(mode) {
       var root = document.documentElement;
-      var dark = mode === "system" ? prefersDark() : mode === "dark";
+      var dark = resolveDark(mode);
 
       // 切换瞬间临时禁用所有过渡，否则整页元素会一起做颜色动画，很脏
       var css = document.createElement("style");
@@ -137,18 +140,23 @@ const jsonLdText = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       document.head.appendChild(css);
 
       root.classList.toggle("dark", dark);
-      // 三个图标都画在按钮里，靠这个属性决定显示哪一个
       root.setAttribute("data-theme-mode", mode);
 
       // 读一次样式强制回流，再移除，改动才会立刻生效
       void window.getComputedStyle(css).opacity;
       document.head.removeChild(css);
 
-      var button = document.getElementById("theme-button");
-      if (button) {
-        var next = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
-        button.setAttribute("title", "主题：" + LABELS[mode] + "，点击切到" + LABELS[next]);
-        button.setAttribute("aria-label", "切换主题（当前" + LABELS[mode] + "）");
+      var toggle = document.getElementById("theme-toggle");
+      if (toggle) {
+        toggle.setAttribute("title", "切到" + (dark ? "浅色" : "深色"));
+        toggle.setAttribute("aria-label", "切换到" + (dark ? "浅色" : "深色") + "主题");
+      }
+
+      var system = document.getElementById("theme-system-button");
+      if (system) {
+        var on = mode === "system";
+        system.setAttribute("aria-pressed", on ? "true" : "false");
+        system.setAttribute("title", on ? "跟随系统（当前）" : "跟随系统，点击切换");
       }
     }
 
@@ -191,17 +199,26 @@ const jsonLdText = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     })();
 
     function init() {
-      var button = document.getElementById("theme-button");
-      if (button) {
-        button.addEventListener("click", function () {
-          var current = document.documentElement.getAttribute("data-theme-mode") || "system";
-          var next = MODES[(MODES.indexOf(current) + 1) % MODES.length];
+      var toggle = document.getElementById("theme-toggle");
+      if (toggle) {
+        toggle.addEventListener("click", function () {
+          // 从「跟随系统」直接点，就切到当前外观的反面
+          var next = document.documentElement.classList.contains("dark") ? "light" : "dark";
           save(next);
           apply(next);
         });
-        // 首屏 apply 时 <body> 还没解析，按钮文字在这里补一次
-        apply(document.documentElement.getAttribute("data-theme-mode") || "system");
       }
+
+      var system = document.getElementById("theme-system-button");
+      if (system) {
+        system.addEventListener("click", function () {
+          save("system");
+          apply("system");
+        });
+      }
+
+      // 首屏 apply 时 <body> 还没解析，按钮上的文案和状态在这里补一次
+      apply(document.documentElement.getAttribute("data-theme-mode") || "system");
 
       var mq = window.matchMedia("(prefers-color-scheme: dark)");
       if (mq.addEventListener) {
