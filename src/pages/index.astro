@@ -16,8 +16,12 @@ const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
     b.data.date.valueOf() - a.data.date.valueOf() || a.id.localeCompare(b.id)
 );
 
+// 首页只露最近三条：一是别把下面的碎片区块挤到看不见，二是新读者只需要
+// “这人最近在写什么”这个信号，翻旧文走 /archive/
+const latest = posts.slice(0, 3);
+
 const groups: { year: number; items: CollectionEntry<"blog">[] }[] = [];
-for (const post of posts) {
+for (const post of latest) {
   const year = yearOf(post.data.date);
   const last = groups[groups.length - 1];
   if (last && last.year === year) {
@@ -62,6 +66,34 @@ const notes = sortNotes(
                 </ul>
               </section>
             ))}
+            <a
+              href="/archive/"
+              class="group relative flex items-center justify-between py-3 px-4 pr-10 rounded-lg border border-dashed border-black/20 dark:border-white/25 text-sm transition-colors duration-300 ease-in-out hover:bg-black/5 dark:hover:bg-white/5 hover:text-black dark:hover:text-white"
+            >
+              <span class="flex items-baseline gap-2">
+                <span class="font-medium opacity-75">全部文章</span>
+                <span class="text-xs tabular-nums opacity-40">
+                  共 {posts.length} 篇
+                </span>
+              </span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                class="absolute top-1/2 right-2 -translate-y-1/2 size-5 stroke-2 fill-none stroke-current opacity-50 group-hover:opacity-90"
+              >
+                <line
+                  x1="5"
+                  y1="12"
+                  x2="19"
+                  y2="12"
+                  class="translate-x-3 group-hover:translate-x-0 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-in-out"
+                />
+                <polyline
+                  points="12 5 19 12 12 19"
+                  class="-translate-x-1 group-hover:translate-x-0 transition-transform duration-300 ease-in-out"
+                />
+              </svg>
+            </a>
           </div>
         )
       }
