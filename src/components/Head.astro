@@ -119,13 +119,17 @@ const jsonLdText = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 <script is:inline>
   (function () {
     var KEY = "theme";
+    // 三个状态轮转：浅色 → 深色 → 跟随系统。页脚只留一个按钮。
+    var MODES = ["light", "dark", "system"];
+    var LABELS = { light: "浅色", dark: "深色", system: "跟随系统" };
 
     function prefersDark() {
       return window.matchMedia("(prefers-color-scheme: dark)").matches;
     }
 
-    function apply(dark) {
+    function apply(mode) {
       var root = document.documentElement;
+      var dark = mode === "system" ? prefersDark() : mode === "dark";
 
       // 切换瞬间临时禁用所有过渡，否则整页元素会一起做颜色动画，很脏
       var css = document.createElement("style");
@@ -133,20 +137,27 @@ const jsonLdText = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       document.head.appendChild(css);
 
       root.classList.toggle("dark", dark);
+      // 三个图标都画在按钮里，靠这个属性决定显示哪一个
+      root.setAttribute("data-theme-mode", mode);
 
       // 读一次样式强制回流，再移除，改动才会立刻生效
       void window.getComputedStyle(css).opacity;
       document.head.removeChild(css);
+
+      var button = document.getElementById("theme-button");
+      if (button) {
+        var next = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
+        button.setAttribute("title", "主题：" + LABELS[mode] + "，点击切到" + LABELS[next]);
+        button.setAttribute("aria-label", "切换主题（当前" + LABELS[mode] + "）");
+      }
     }
 
-    function stored() {
+    function storedMode() {
       var v = null;
       try {
         v = localStorage.getItem(KEY);
       } catch (e) {}
-      if (v === "dark") return true;
-      if (v === "light") return false;
-      return prefersDark();
+      return MODES.indexOf(v) >= 0 ? v : "system";
     }
 
     function save(value) {
@@ -160,7 +171,7 @@ const jsonLdText = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     }
 
     // 先上色，后绑定
-    apply(stored());
+    apply(storedMode());
 
     // 阅读偏好（字号 / 行距 / 字体）：同样在绘制前落到 <html> 上，
     // 否则设过「大字号」的人打开每一页都会先看到默认字号再跳一下。
@@ -180,37 +191,22 @@ const jsonLdText = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     })();
 
     function init() {
-      var light = document.getElementById("light-theme-button");
-      var darkBtn = document.getElementById("dark-theme-button");
-      var system = document.getElementById("system-theme-button");
-
-      if (light) {
-        light.addEventListener("click", function () {
-          save("light");
-          apply(false);
+      var button = document.getElementById("theme-button");
+      if (button) {
+        button.addEventListener("click", function () {
+          var current = document.documentElement.getAttribute("data-theme-mode") || "system";
+          var next = MODES[(MODES.indexOf(current) + 1) % MODES.length];
+          save(next);
+          apply(next);
         });
-      }
-      if (darkBtn) {
-        darkBtn.addEventListener("click", function () {
-          save("dark");
-          apply(true);
-        });
-      }
-      if (system) {
-        system.addEventListener("click", function () {
-          save("system");
-          apply(prefersDark());
-        });
+        // 首屏 apply 时 <body> 还没解析，按钮文字在这里补一次
+        apply(document.documentElement.getAttribute("data-theme-mode") || "system");
       }
 
       var mq = window.matchMedia("(prefers-color-scheme: dark)");
       if (mq.addEventListener) {
-        mq.addEventListener("change", function (e) {
-          var v = null;
-          try {
-            v = localStorage.getItem(KEY);
-          } catch (err) {}
-          if (!v || v === "system") apply(e.matches);
+        mq.addEventListener("change", function () {
+          if (storedMode() === "system") apply("system");
         });
       }
 

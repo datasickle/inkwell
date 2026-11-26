@@ -725,3 +725,22 @@ html.dark .reading-row + .reading-row {
 html.dark .reading-opt[aria-pressed="true"] {
   background: rgb(255 255 255 / 0.12);
 }
+
+/* theme button: three icons stacked in one button; html[data-theme-mode] picks which shows */
+.theme-icon {
+  display: none;
+}
+
+.theme-icon-system {
+  display: block;
+}
+
+html[data-theme-mode="light"] .theme-icon-system,
+html[data-theme-mode="dark"] .theme-icon-system {
+  display: none;
+}
+
+html[data-theme-mode="light"] .theme-icon-light,
+html[data-theme-mode="dark"] .theme-icon-dark {
+  display: block;
+}
