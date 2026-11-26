@@ -16,10 +16,14 @@ fs.cpSync(SRC, work, {
   },
 });
 
+// `git init -b` 要 git 2.28+，老版本会直接报 unknown switch b；
+// 先普通初始化再改 HEAD 指向，2.14 也能跑
 const git = (...args) => execFileSync('git', args, { cwd: work, encoding: 'utf8' }).trim();
 
 const steps = [];
-steps.push(['git init', git('init', '-q', '-b', 'main') === '' ? 'ok' : 'ok']);
+git('init', '-q');
+git('symbolic-ref', 'HEAD', 'refs/heads/main');
+steps.push(['git init', 'ok']);
 git('config', 'user.name', 'Inkwell Test');
 git('config', 'user.email', 'test@example.com');
 git('add', '-A');
