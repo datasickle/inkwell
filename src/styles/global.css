@@ -392,6 +392,36 @@ article img {
   box-shadow: 0 24px 70px rgb(0 0 0 / 0.55);
   transform: scale(0.97);
   transition: transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* 放大后要能拖着走，不能让浏览器把手势当成滚动或长按选中 */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* 缩放时不要再补间，否则每滚一格都要等 220ms，手感发黏 */
+.lightbox.zoomed img {
+  transition: none;
+}
+
+.lightbox-count {
+  position: absolute;
+  left: 50%;
+  bottom: 1.2rem;
+  transform: translateX(-50%);
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: rgb(255 255 255 / 0.78);
+  background: rgb(255 255 255 / 0.1);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.lightbox-count[hidden] {
+  display: none;
 }
 
 .lightbox.on img {
@@ -563,4 +593,135 @@ html.dark .toc-link.is-active {
   .lightbox img {
     transition: none;
   }
+}
+
+/* ------------------------------------------------------------------
+   阅读偏好：字号 / 行距 / 字体
+   Tailwind typography 把 1rem / 1.75 直接写死在 `article` 上，而且都在
+   @layer 里。这段故意不写进任何 @layer —— 无 layer 的规则天然压过有 layer
+   的规则，所以不用 !important 也能盖住。
+
+   只改 article 自身的字号行高，段落、列表、标题（em 单位）会跟着一起放大，
+   导航、页脚、代码块的行内字号不受影响。
+   ------------------------------------------------------------------ */
+article {
+  font-size: var(--read-size, 1rem);
+  line-height: var(--read-leading, 1.75);
+}
+
+html[data-read-size="s"] {
+  --read-size: 0.9375rem;
+}
+
+html[data-read-size="l"] {
+  --read-size: 1.125rem;
+}
+
+html[data-read-leading="loose"] {
+  --read-leading: 1.95;
+}
+
+/* 中文衬线：先给宋体族，拉丁字符再用 Georgia 兜底 */
+html[data-read-font="serif"] article {
+  font-family: Georgia, "Songti SC", "Noto Serif SC", "Source Han Serif SC",
+    "SimSun", serif;
+}
+
+/* 正文里的链接默认是 font-sans，衬线模式下跟着正文走，否则行内会突然换字体 */
+html[data-read-font="serif"] article a {
+  font-family: inherit;
+}
+
+/* ------------------------------------------------------------------
+   页脚那个 Aa 按钮与它上面的面板
+   ------------------------------------------------------------------ */
+.reading-prefs {
+  position: relative;
+}
+
+.reading-panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.6rem);
+  z-index: 90;
+  width: 16rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgb(0 0 0 / 0.08);
+  border-radius: 12px;
+  background: #fafafa;
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.12);
+  font-size: 0.8125rem;
+  color: rgb(0 0 0 / 0.62);
+}
+
+html.dark .reading-panel {
+  border-color: rgb(255 255 255 / 0.12);
+  background: #171717;
+  color: rgb(255 255 255 / 0.72);
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.45);
+}
+
+.reading-panel[hidden] {
+  display: none;
+}
+
+/* 窄屏上按钮落在页脚中间偏右，面板继续按 right:0 对齐会顶出屏幕左边，
+   改成贴住视口底部的抽屉。 */
+@media (max-width: 640px) {
+  .reading-panel {
+    position: fixed;
+    left: 1rem;
+    right: 1rem;
+    bottom: 4.5rem;
+    width: auto;
+    max-width: none;
+  }
+}
+
+.reading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.3rem 0;
+}
+
+.reading-row + .reading-row {
+  border-top: 1px solid rgb(0 0 0 / 0.06);
+}
+
+html.dark .reading-row + .reading-row {
+  border-top-color: rgb(255 255 255 / 0.1);
+}
+
+.reading-label {
+  flex: none;
+}
+
+.reading-opts {
+  display: flex;
+  gap: 0.15rem;
+}
+
+.reading-opt {
+  padding: 0.1rem 0.45rem;
+  border-radius: 6px;
+  line-height: 1.6;
+  color: inherit;
+  opacity: 0.62;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.reading-opt:hover {
+  opacity: 0.9;
+}
+
+.reading-opt[aria-pressed="true"] {
+  opacity: 1;
+  background: rgb(0 0 0 / 0.06);
+}
+
+html.dark .reading-opt[aria-pressed="true"] {
+  background: rgb(255 255 255 / 0.12);
 }

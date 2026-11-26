@@ -300,7 +300,69 @@ const ogImage = firstLocalImage(post.body) ? `/og/${post.id}.png` : undefined;
       if (!article) return;
 
       let overlay: HTMLDivElement | null = null;
+      let frame: HTMLImageElement | null = null;
+      let counter: HTMLSpanElement | null = null;
+      let items: { src: string; alt: string }[] = [];
+      let index = 0;
       let scrollY = 0;
+
+      // 缩放与拖动（滚轮放大后可以拖着看细节）
+      let scale = 1;
+      let tx = 0;
+      let ty = 0;
+      let dragging = false;
+      let moved = false;
+      let startX = 0;
+      let startY = 0;
+      let baseX = 0;
+      let baseY = 0;
+      // 手机上横滑翻页的起点
+      let touchX = 0;
+      let touchY = 0;
+
+      const MAX_SCALE = 4;
+
+      function collect() {
+        const list: { src: string; alt: string }[] = [];
+        article.querySelectorAll("img").forEach((node) => {
+          const img = node as HTMLImageElement;
+          // 优化过的图带 width 属性，懒加载还没落地时也能判大小；
+          // 表情、图标这类小图放大没意义，直接跳过
+          const declared = Number(img.getAttribute("width") ?? 0);
+          if (declared >= 200 || img.naturalWidth >= 200) {
+            list.push({ src: img.currentSrc || img.src, alt: img.alt });
+          }
+        });
+        return list;
+      }
+
+      function paint() {
+        if (!frame) return;
+        frame.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+        frame.style.cursor = scale > 1 ? (dragging ? "grabbing" : "grab") : "zoom-in";
+        overlay?.classList.toggle("zoomed", scale > 1);
+      }
+
+      function reset() {
+        scale = 1;
+        tx = 0;
+        ty = 0;
+        paint();
+      }
+
+      function show(next: number) {
+        if (!items.length) return;
+        index = (next + items.length) % items.length;
+        if (frame) {
+          frame.src = items[index].src;
+          frame.alt = items[index].alt;
+        }
+        reset();
+        if (counter) {
+          counter.textContent = items.length > 1 ? `${index + 1} / ${items.length}` : "";
+          counter.hidden = items.length < 2;
+        }
+      }
 
       function close() {
         if (!overlay) return;
@@ -319,46 +381,154 @@ const ogImage = firstLocalImage(post.body) ? `/og/${post.id}.png` : undefined;
         });
         const dying = overlay;
         overlay = null;
+        frame = null;
+        counter = null;
         window.setTimeout(() => dying.remove(), 220);
       }
 
-      function open(src: string, alt: string) {
-        if (overlay) return;
+      function openAt(list: { src: string; alt: string }[], start: number) {
+        if (overlay || !list.length) return;
+        items = list;
         scrollY = window.scrollY;
 
         overlay = document.createElement("div");
         overlay.className = "lightbox";
         overlay.setAttribute("role", "dialog");
         overlay.setAttribute("aria-modal", "true");
-        overlay.setAttribute("aria-label", alt || "图片预览");
+        overlay.setAttribute("aria-label", items[start]?.alt || "图片预览");
 
-        const img = document.createElement("img");
-        img.src = src;
-        img.alt = alt;
-        overlay.appendChild(img);
+        frame = document.createElement("img");
+        frame.alt = "";
+        frame.draggable = false;
+        overlay.appendChild(frame);
 
-        // 点背景或图片本身都关闭
-        overlay.addEventListener("click", close);
+        counter = document.createElement("span");
+        counter.className = "lightbox-count";
+        overlay.appendChild(counter);
+
         document.body.appendChild(overlay);
+        show(start);
         // 下一帧再加 .on，否则不会触发过渡
         requestAnimationFrame(() => overlay?.classList.add("on"));
 
         // 锁滚动：fixed + 负 top 保持视觉位置不跳
         document.documentElement.classList.add("lightbox-open");
         document.body.style.top = `-${scrollY}px`;
+
+        overlay.addEventListener("click", (event) => {
+          const target = event.target as HTMLElement;
+          // 点背景关闭；没放大时点图片本身也关闭（沿用原来的手感）
+          if (target === overlay) close();
+          else if (target === frame && scale === 1 && !moved) close();
+          moved = false;
+        });
+
+        // 滚轮缩放，1x 到 4x
+        overlay.addEventListener(
+          "wheel",
+          (event) => {
+            event.preventDefault();
+            const next = Math.min(
+              MAX_SCALE,
+              Math.max(1, Math.round(scale * (event.deltaY < 0 ? 1.15 : 0.87) * 1000) / 1000)
+            );
+            if (next === scale) return;
+            scale = next;
+            if (scale === 1) {
+              tx = 0;
+              ty = 0;
+            }
+            paint();
+          },
+          { passive: false }
+        );
+
+        // 放大之后按住拖动
+        overlay.addEventListener("pointerdown", (event) => {
+          if (scale === 1 || !frame) return;
+          dragging = true;
+          moved = false;
+          startX = event.clientX;
+          startY = event.clientY;
+          baseX = tx;
+          baseY = ty;
+          frame.setPointerCapture?.(event.pointerId);
+          paint();
+        });
+
+        overlay.addEventListener("pointermove", (event) => {
+          if (!dragging) return;
+          const dx = event.clientX - startX;
+          const dy = event.clientY - startY;
+          if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+          tx = baseX + dx;
+          ty = baseY + dy;
+          paint();
+        });
+
+        const stopDrag = () => {
+          if (!dragging) return;
+          dragging = false;
+          paint();
+        };
+        overlay.addEventListener("pointerup", stopDrag);
+        overlay.addEventListener("pointercancel", stopDrag);
+
+        // 手机上左右滑翻页（只在未放大时）
+        overlay.addEventListener(
+          "touchstart",
+          (event) => {
+            if (event.touches.length !== 1) return;
+            touchX = event.touches[0].clientX;
+            touchY = event.touches[0].clientY;
+          },
+          { passive: true }
+        );
+
+        overlay.addEventListener(
+          "touchend",
+          (event) => {
+            if (scale > 1 || items.length < 2) return;
+            const touch = event.changedTouches[0];
+            if (!touch) return;
+            const dx = touch.clientX - touchX;
+            const dy = touch.clientY - touchY;
+            if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+              show(index + (dx < 0 ? 1 : -1));
+            }
+          },
+          { passive: true }
+        );
       }
 
-      article.addEventListener("click", (e) => {
-        const img = (e.target as HTMLElement).closest("img");
+      article.addEventListener("click", (event) => {
+        const img = (event.target as HTMLElement).closest("img");
         if (!img) return;
         // 太小的图（表情、图标）放大没意义
-        if (img.naturalWidth < 200) return;
-        e.preventDefault();
-        open(img.currentSrc || img.src, img.alt);
+        if (Number(img.getAttribute("width") ?? 0) < 200 && img.naturalWidth < 200) return;
+        const list = collect();
+        const src = img.currentSrc || img.src;
+        const start = list.findIndex((item) => item.src === src);
+        event.preventDefault();
+        openAt(list, start < 0 ? 0 : start);
       });
 
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") close();
+      document.addEventListener("keydown", (event) => {
+        if (!overlay) return;
+        if (event.key === "Escape") close();
+        else if (event.key === "ArrowLeft") show(index - 1);
+        else if (event.key === "ArrowRight") show(index + 1);
+        else if (event.key === "+" || event.key === "=") {
+          scale = Math.min(MAX_SCALE, scale * 1.25);
+          paint();
+        } else if (event.key === "-") {
+          scale = Math.max(1, scale / 1.25);
+          if (scale === 1) {
+            tx = 0;
+            ty = 0;
+          }
+          paint();
+        }
       });
     }
 

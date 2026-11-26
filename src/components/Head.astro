@@ -162,6 +162,23 @@ const jsonLdText = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
     // 先上色，后绑定
     apply(stored());
 
+    // 阅读偏好（字号 / 行距 / 字体）：同样在绘制前落到 <html> 上，
+    // 否则设过「大字号」的人打开每一页都会先看到默认字号再跳一下。
+    (function () {
+      var defaults = { size: "m", leading: "normal", font: "sans" };
+      var keys = ["size", "leading", "font"];
+      var saved = {};
+      try {
+        saved = JSON.parse(localStorage.getItem("reading") || "{}") || {};
+      } catch (e) {}
+      var target = document.documentElement;
+      for (var i = 0; i < keys.length; i++) {
+        var key = keys[i];
+        var value = typeof saved[key] === "string" ? saved[key] : defaults[key];
+        target.setAttribute("data-read-" + key, value);
+      }
+    })();
+
     function init() {
       var light = document.getElementById("light-theme-button");
       var darkBtn = document.getElementById("dark-theme-button");

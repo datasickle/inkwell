@@ -1,6 +1,7 @@
 ---
 import Container from "./Container.astro";
 import BackToTop from "./BackToTop.astro";
+import ReadingPrefs from "./ReadingPrefs.astro";
 import site from "../../site.json";
 import { yearOf } from "../lib/datetime";
 
@@ -20,6 +21,8 @@ const year = yearOf(new Date());
         &copy; {year} {site.author}
       </div>
       <div class="flex flex-wrap gap-1 items-center">
+        <ReadingPrefs />
+        <span class="mx-1 h-4 w-px bg-black/10 dark:bg-white/15" aria-hidden="true"></span>
         <button
           id="light-theme-button"
           aria-label="浅色主题"

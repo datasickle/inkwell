@@ -1,0 +1,144 @@
+---
+// 阅读偏好：字号 / 行距 / 字体。
+// 状态全部落在 <html> 的 data-read-* 上，CSS 负责实际生效；
+// 这样导航、页脚、代码块的字号都不会被牵连，也不需要重排 DOM。
+---
+
+<div class="reading-prefs">
+  <button
+    id="reading-prefs-button"
+    type="button"
+    aria-label="阅读偏好"
+    title="阅读偏好"
+    aria-haspopup="dialog"
+    aria-expanded="false"
+    aria-controls="reading-prefs-panel"
+    class="group size-8 flex items-center justify-center rounded-full"
+  >
+    <span class="text-[12px] font-medium leading-none tracking-tight group-hover:text-black group-hover:dark:text-white transition-colors duration-300 ease-in-out">
+      Aa
+    </span>
+  </button>
+
+  <div
+    id="reading-prefs-panel"
+    class="reading-panel"
+    role="dialog"
+    aria-label="阅读偏好"
+    hidden
+  >
+    <div class="reading-row">
+      <span class="reading-label">字号</span>
+      <div class="reading-opts" data-group="size">
+        <button type="button" class="reading-opt" data-value="s" aria-pressed="false">小</button>
+        <button type="button" class="reading-opt" data-value="m" aria-pressed="true">标准</button>
+        <button type="button" class="reading-opt" data-value="l" aria-pressed="false">大</button>
+      </div>
+    </div>
+    <div class="reading-row">
+      <span class="reading-label">行距</span>
+      <div class="reading-opts" data-group="leading">
+        <button type="button" class="reading-opt" data-value="normal" aria-pressed="true">标准</button>
+        <button type="button" class="reading-opt" data-value="loose" aria-pressed="false">宽松</button>
+      </div>
+    </div>
+    <div class="reading-row">
+      <span class="reading-label">字体</span>
+      <div class="reading-opts" data-group="font">
+        <button type="button" class="reading-opt" data-value="sans" aria-pressed="true">无衬线</button>
+        <button type="button" class="reading-opt" data-value="serif" aria-pressed="false">衬线</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = "reading";
+
+  // 与 Head.astro 里「首屏前置应用」的默认值保持一致，改一处记得改两处
+  const DEFAULTS = { size: "m", leading: "normal", font: "sans" };
+  type PrefKey = keyof typeof DEFAULTS;
+  type Prefs = Record<PrefKey, string>;
+
+  const root = document.documentElement;
+  const button = document.getElementById("reading-prefs-button");
+  const panel = document.getElementById("reading-prefs-panel");
+
+  function load(): Prefs {
+    const values: Prefs = { ...DEFAULTS };
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") as Partial<Prefs>;
+      (Object.keys(DEFAULTS) as PrefKey[]).forEach((key) => {
+        if (typeof saved[key] === "string") values[key] = saved[key] as string;
+      });
+    } catch {
+      // 存的东西坏了就用默认值，不影响阅读
+    }
+    return values;
+  }
+
+  function apply(values: Prefs) {
+    root.dataset.readSize = values.size;
+    root.dataset.readLeading = values.leading;
+    root.dataset.readFont = values.font;
+  }
+
+  function save(values: Prefs) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(values));
+    } catch {
+      // 隐私模式下写不进去也无所谓，当前页面照样生效
+    }
+  }
+
+  function sync(values: Prefs) {
+    if (!panel) return;
+    panel.querySelectorAll<HTMLElement>("[data-group]").forEach((group) => {
+      const key = group.dataset.group as PrefKey;
+      group.querySelectorAll<HTMLButtonElement>("button[data-value]").forEach((option) => {
+        option.setAttribute("aria-pressed", String(option.dataset.value === values[key]));
+      });
+    });
+  }
+
+  function setOpen(open: boolean) {
+    if (!panel || !button) return;
+    panel.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+  }
+
+  if (button && panel) {
+    let values = load();
+    apply(values);
+    sync(values);
+
+    button.addEventListener("click", () => setOpen(panel.hidden));
+
+    panel.addEventListener("click", (event) => {
+      const option = (event.target as HTMLElement).closest("button[data-value]");
+      if (!option) return;
+      const group = option.closest<HTMLElement>("[data-group]");
+      const key = group?.dataset.group as PrefKey | undefined;
+      const value = (option as HTMLButtonElement).dataset.value;
+      if (!key || !value) return;
+      values = { ...values, [key]: value };
+      apply(values);
+      sync(values);
+      save(values);
+    });
+
+    document.addEventListener("click", (event) => {
+      if (panel.hidden) return;
+      const target = event.target as Node;
+      if (panel.contains(target) || button.contains(target)) return;
+      setOpen(false);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !panel.hidden) {
+        setOpen(false);
+        button.focus();
+      }
+    });
+  }
+</script>
