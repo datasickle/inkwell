@@ -17,6 +17,12 @@ import {
   SAFE_SLUG,
   applyFormat,
   continueList,
+  notesDirFor,
+  noteSlug,
+  notePath,
+  noteTitle,
+  buildNoteFile,
+  parseNoteFile,
 } from '../app/core.js';
 
 let pass = 0;
@@ -226,6 +232,52 @@ console.log('\n【slug 生成】');
   })());
 }
 
+console.log('\n【碎片：目录、路径、标题】');
+{
+  eq('目录推导 blog→notes', notesDirFor('src/content/blog'), 'src/content/notes');
+  eq('已经是 notes 就不动', notesDirFor('src/content/notes'), 'src/content/notes');
+  eq('非 blog 目录末尾补 notes', notesDirFor('content/posts'), 'content/posts/notes');
+  eq('空值回落默认', notesDirFor(''), 'src/content/notes');
+
+  eq('文件名取时刻', noteSlug('2026-11-26T14:32:00+08:00'), '20261126-1432');
+  eq('只有日期补 -0000', noteSlug('2026-11-26'), '20261126-0000');
+  ok('文件名过 SAFE_SLUG', SAFE_SLUG.test(noteSlug('2026-11-26T09:04:00+08:00')));
+
+  eq('路径拼接', notePath('20261126-1432', 'src/content/notes'), 'src/content/notes/20261126-1432.md');
+  ok('非法路径被拒', (() => {
+    try {
+      notePath('Bad Slug');
+      return false;
+    } catch {
+      return true;
+    }
+  })());
+
+  eq('首句当标题', noteTitle('RAG 那篇只写了一半，索引还没验证。后面还有。'), 'RAG 那篇只写了一半，索引还没验证');
+  eq('去掉图片与链接', noteTitle('![](/images/a.png) 看 [这里](https://x) 就行'), '看 这里 就行');
+  eq('过长截断', noteTitle('一'.repeat(60)), `${'一'.repeat(40)}…`);
+  eq('空正文兜底', noteTitle(''), '（没有正文）');
+}
+
+console.log('\n【碎片 frontmatter】');
+{
+  const raw = buildNoteFile({ date: '2026-11-26T14:32:00+08:00', tags: '随手, 运维', body: '今天记一条。\n第二段。' });
+  ok('不写 title', !/^title:/m.test(raw));
+  ok('date 带时区', raw.includes('date: 2026-11-26T14:32:00+08:00'));
+  ok('tags 归一化', raw.includes('tags: 随手, 运维'));
+  ok('发布时不写 draft', !/^draft:/m.test(raw));
+
+  const back = parseNoteFile(raw, '20261126-1432');
+  eq('date 往返', back.date, '2026-11-26T14:32:00+08:00');
+  eq('tags 往返', back.tags, ['随手', '运维']);
+  eq('body 往返', back.body, '今天记一条。\n第二段。');
+  eq('标题来自正文', back.title, '今天记一条');
+
+  const drafted = buildNoteFile({ date: '2026-11-26T14:32:00+08:00', body: '草稿', draft: true });
+  ok('存草稿写 draft: true', /^draft: true/m.test(drafted));
+  ok('没标签就不写 tags', !/^tags:/m.test(drafted));
+}
+
 console.log('\n【base64 中文不损坏】');
 {
   const src = '标题：繁體中文與简体 😀 混排\n第二行';
@@ -276,6 +328,13 @@ const base = `http://127.0.0.1:${mock.address().port}`;
 
   await gh.deleteFile('src/content/blog/p1.md', updated.sha, '删除《首篇》');
   eq('删除后列表为空', (await gh.listDir('src/content/blog')).length, 0);
+
+  // 碎片走同一套接口，只是目录和 frontmatter 不同
+  const noteText = buildNoteFile({ date: '2026-11-26T14:32:00+08:00', tags: '随手', body: '记一条。' });
+  const noteCreated = await gh.putFile(notePath('20261126-1432', 'src/content/notes'), noteText, '新增碎片 11-26 14:32');
+  ok('碎片新建返回 sha', !!noteCreated.sha);
+  eq('碎片目录能列出', (await gh.listDir('src/content/notes')).length, 1);
+  eq('碎片原文读回', (await gh.getFile('src/content/notes/20261126-1432.md')).text, noteText);
 }
 
 console.log('\n【错误提示可读】');

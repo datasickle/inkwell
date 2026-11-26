@@ -9,6 +9,7 @@ import path from 'node:path';
 const APP = path.resolve(import.meta.dirname, '..', 'app');
 const PORT = Number(process.env.PORT || 4700);
 const DIR = 'src/content/blog';
+const NOTES_DIR = 'src/content/notes';
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -68,9 +69,34 @@ const files = new Map();
 let seq = 0;
 const newSha = () => `m${(seq += 1).toString().padStart(4, '0')}`;
 
+// 碎片也预置两条，好让「文章 / 碎片」两个 tab 都有东西看
+const demoNotes = [
+  {
+    slug: '20261126-0931',
+    text: `---
+date: 2026-11-26T09:31:00+08:00
+tags: 随手
+---
+
+RAG 那篇只写了一半，索引还没验证就走人了。明天补。
+`,
+  },
+  {
+    slug: '20261125-2203',
+    text: `---
+date: 2026-11-25T22:03:00+08:00
+tags: 运维
+---
+
+删掉的文章还在返回 200，翻了半天是边缘缓存，不是构建的问题。
+`,
+  },
+];
+
 function seed() {
   files.clear();
   for (const d of demo) files.set(`${DIR}/${d.slug}.md`, { sha: newSha(), text: d.text });
+  for (const d of demoNotes) files.set(`${NOTES_DIR}/${d.slug}.md`, { sha: newSha(), text: d.text });
 }
 seed();
 

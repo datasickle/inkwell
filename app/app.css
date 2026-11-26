@@ -896,6 +896,51 @@ button {
   }
 }
 
+/* ---------- 文章 / 碎片 切换 ---------- */
+
+.segs {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--code);
+  margin-bottom: 8px;
+}
+
+.segs button {
+  flex: 1;
+  border-radius: 7px;
+  padding: 5px 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.segs button.on {
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+}
+
+.side-head {
+  flex-wrap: wrap;
+}
+
+.side-head .segs {
+  flex: 1 0 100%;
+}
+
+/* 碎片模式：没有标题、也没有路径，正文就是全部 */
+body.mode-note #title,
+body.mode-note #slug {
+  display: none;
+}
+
+body.mode-note .meta-row:first-of-type {
+  margin-top: 0;
+}
+
 .toast {
   position: fixed;
   left: 50%;

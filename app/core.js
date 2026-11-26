@@ -2,6 +2,7 @@
 // 纯逻辑，不碰 DOM，浏览器与 Node 都能 import（便于测试）。
 
 export const POSTS_DIR = 'src/content/blog';
+export const NOTES_DIR = 'src/content/notes';
 
 const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
@@ -796,6 +797,74 @@ export function parsePostFile(raw, slug) {
     tags: normalizeTags(meta.tags),
     draft: String(meta.draft) === 'true',
     summary: meta.summary || '',
+    body,
+  };
+}
+
+/* ---------- 碎片（notes） ---------- */
+
+/**
+ * 碎片目录：把文章目录末尾那一段 blog 换成 notes（src/content/blog → src/content/notes），
+ * 换不出来就在同级加一个 notes。这样设置面板里只填一个「文章目录」就够。
+ */
+export function notesDirFor(dir = POSTS_DIR) {
+  const parts = String(dir || POSTS_DIR)
+    .split('/')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!parts.length) return NOTES_DIR;
+  const last = parts[parts.length - 1];
+  if (last === 'blog') parts[parts.length - 1] = 'notes';
+  else if (last !== 'notes') parts.push('notes');
+  return parts.join('/');
+}
+
+/** 碎片用时刻当文件名：20261126-1432。没有标题，就靠时间定位 */
+export function noteSlug(date = nowStamp()) {
+  const m = String(date || '').match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (!m) return `${todayISO().replace(/-/g, '')}-0000`;
+  return `${m[1]}${m[2]}${m[3]}-${m[4]}${m[5]}`;
+}
+
+export function notePath(slug, dir = NOTES_DIR) {
+  assertSlug(slug);
+  return `${dir}/${slug}.md`;
+}
+
+/**
+ * 碎片没有 title 字段——写的时候不用先想标题，这是它和文章最大的区别。
+ * 列表、搜索、RSS 需要「名字」的地方，统一取正文第一句。
+ * 这段逻辑要和站点侧 src/lib/notes.ts 的 noteTitle 保持一致。
+ */
+export function noteTitle(body, limit = 40) {
+  const text = String(body || '')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[`*_~#>]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return '（没有正文）';
+  const first = (text.match(/^[^。！？!?]{1,120}/) || [text])[0].trim();
+  return first.length > limit ? `${first.slice(0, limit)}…` : first;
+}
+
+// 碎片的 frontmatter 只留 date 和可选的 tags；draft 只在不发布时写
+export function buildNoteFile({ date, tags, draft, body }) {
+  const meta = { date: withOffset(String(date || nowStamp())) };
+  const tagText = normalizeTags(tags).join(', ');
+  if (tagText) meta.tags = tagText;
+  if (draft) meta.draft = 'true';
+  return stringifyPost(meta, body || '');
+}
+
+export function parseNoteFile(raw, slug) {
+  const { meta, body } = parseFrontmatter(raw);
+  return {
+    slug,
+    title: noteTitle(body),
+    date: meta.date || '',
+    tags: normalizeTags(meta.tags),
+    draft: String(meta.draft) === 'true',
     body,
   };
 }

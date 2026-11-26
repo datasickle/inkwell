@@ -23,6 +23,10 @@
     <div class="main">
       <aside class="side">
         <div class="side-head">
+          <div class="segs" id="segs" role="tablist" aria-label="内容类型">
+            <button data-mode="post" class="on" role="tab" aria-selected="true">文章</button>
+            <button data-mode="note" role="tab" aria-selected="false">碎片</button>
+          </div>
           <input class="search" id="search" placeholder="搜索标题…" />
           <button class="new-btn" id="btnNew">＋ 新篇</button>
         </div>
@@ -116,6 +120,7 @@
         <div class="field">
           <label>文章目录</label>
           <input id="cfgDir" placeholder="src/content/blog" spellcheck="false" />
+          <p class="hint" id="cfgNotesHint"></p>
         </div>
         <div class="field">
           <label>GitHub Token（需要 Contents 读写权限）</label>
@@ -134,6 +139,7 @@
     <script type="module">
       import {
         POSTS_DIR,
+        NOTES_DIR,
         renderMarkdown,
         excerpt,
         normalizeTags,
@@ -145,6 +151,12 @@
         assertSlug,
         buildPostFile,
         parsePostFile,
+        notesDirFor,
+        noteSlug,
+        notePath,
+        noteTitle,
+        buildNoteFile,
+        parseNoteFile,
         createGitHub,
         GitHubError,
         applyFormat,
@@ -160,6 +172,7 @@
       const CFG_KEY = 'inkwell:cfg';
       const DRAFT_KEY = 'inkwell:draft:';
       const CACHE_KEY = 'inkwell:cache';
+      const MODE_KEY = 'inkwell:mode';
 
       const el = {
         conn: document.getElementById('conn'),
@@ -177,6 +190,7 @@
         cfgRepo: document.getElementById('cfgRepo'),
         cfgBranch: document.getElementById('cfgBranch'),
         cfgDir: document.getElementById('cfgDir'),
+        cfgNotesHint: document.getElementById('cfgNotesHint'),
         cfgToken: document.getElementById('cfgToken'),
         toast: document.getElementById('toast'),
         progress: document.getElementById('progress'),
@@ -188,6 +202,7 @@
         btnBack: document.getElementById('btnBack'),
         btnNew: document.getElementById('btnNew'),
         fileInput: document.getElementById('fileInput'),
+        segs: document.getElementById('segs'),
       };
 
       const app = {
@@ -199,9 +214,22 @@
         dirty: false,
         slugTouched: false,
         loading: false,
+        // 'post' = 文章（src/content/blog），'note' = 碎片（src/content/notes）
+        mode: 'post',
         // 本次会话上传过的图：路径 → blob URL，让预览立刻有图，不用等云端构建
         imageBlobs: {},
       };
+
+      /** 当前模式下要读写的目录 */
+      function dirFor(mode = app.mode) {
+        if (mode === 'note') return notesDirFor((app.cfg && app.cfg.dir) || POSTS_DIR);
+        return (app.cfg && app.cfg.dir) || POSTS_DIR;
+      }
+
+      /** 草稿按「类型|slug」存：文章和碎片可能有同名文件，不能混 */
+      function draftKey(slug = app.slug) {
+        return `${app.mode}|${slug}`;
+      }
 
       /* ---------- 小工具 ---------- */
 
@@ -275,7 +303,7 @@
 
       function readDraft(slug) {
         try {
-          return JSON.parse(localStorage.getItem(DRAFT_KEY + slug) || 'null');
+          return JSON.parse(localStorage.getItem(DRAFT_KEY + draftKey(slug)) || 'null');
         } catch {
           return null;
         }
@@ -284,19 +312,20 @@
       function saveDraft() {
         if (!app.slug) return;
         const data = {
+          mode: app.mode,
           title: el.title.value,
           date: el.date.value,
           tags: el.tags.value,
           body: el.body.value,
           savedAt: Date.now(),
         };
-        localStorage.setItem(DRAFT_KEY + app.slug, JSON.stringify(data));
+        localStorage.setItem(DRAFT_KEY + draftKey(), JSON.stringify(data));
         app.dirty = true;
         setState(`草稿已存在本机 · ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`, true);
       }
 
       function clearDraft(slug) {
-        localStorage.removeItem(DRAFT_KEY + slug);
+        localStorage.removeItem(DRAFT_KEY + draftKey(slug));
       }
 
       /* ---------- 预览 ---------- */
@@ -338,10 +367,54 @@
         return true;
       }
 
+      /* ---------- 文章 / 碎片 切换 ---------- */
+
+      function applyMode(mode) {
+        const note = mode === 'note';
+        document.body.classList.toggle('mode-note', note);
+        el.search.placeholder = note ? '搜索碎片…' : '搜索标题…';
+        el.btnNew.textContent = note ? '＋ 记一条' : '＋ 新篇';
+        el.body.placeholder = note ? '记点什么…一两句话就行' : '从这里开始写…';
+        for (const b of el.segs.querySelectorAll('button')) {
+          const on = b.dataset.mode === mode;
+          b.classList.toggle('on', on);
+          b.setAttribute('aria-selected', on ? 'true' : 'false');
+        }
+      }
+
+      function rememberMode(mode) {
+        try {
+          localStorage.setItem(MODE_KEY, mode);
+        } catch {
+          /* 存不了就算了，下次开还是默认文章 */
+        }
+      }
+
+      function switchMode(mode) {
+        if (mode === app.mode) return;
+        if (app.dirty && app.slug) saveDraft();
+        app.mode = mode;
+        rememberMode(mode);
+        app.slug = '';
+        app.sha = null;
+        app.dirty = false;
+        app.slugTouched = false;
+        app.items = [];
+        el.slug.value = '';
+        el.btnDelete.disabled = true;
+        fillEditor({ title: '', date: nowStamp(), tags: [], body: '' });
+        applyMode(mode);
+        document.body.classList.remove('view-edit');
+        document.body.classList.add('view-list');
+        renderList();
+        if (app.gh) refresh();
+      }
+
       /* ---------- 文章列表 ---------- */
 
       function renderList() {
         const q = el.search.value.trim().toLowerCase();
+        const note = app.mode === 'note';
         const list = app.items.filter((it) => {
           if (!q) return true;
           return (it.title || it.slug).toLowerCase().includes(q) || it.slug.includes(q);
@@ -352,7 +425,12 @@
           return;
         }
         if (!list.length) {
-          el.items.innerHTML = `<div class="empty">${q ? '没有匹配的文章' : '仓库里还没有文章<br />点「＋ 新篇」开始'}</div>`;
+          const empty = q
+            ? note ? '没有匹配的碎片' : '没有匹配的文章'
+            : note
+              ? '还没有碎片<br />点「＋ 记一条」随手记'
+              : '仓库里还没有文章<br />点「＋ 新篇」开始';
+          el.items.innerHTML = `<div class="empty">${empty}</div>`;
           return;
         }
 
@@ -383,10 +461,12 @@
 
       async function refresh() {
         if (!app.gh || app.loading) return;
+        const mode = app.mode;
         app.loading = true;
         beginBusy('正在读取仓库…');
         try {
-          const files = await app.gh.listDir(app.cfg.dir);
+          const files = await app.gh.listDir(dirFor(mode));
+          if (mode !== app.mode) return;
           const cache = readCache();
           app.items = files
             .map((f) => {
@@ -410,7 +490,7 @@
               stale.slice(i, i + 6).map(async (it) => {
                 try {
                   const file = await app.gh.getFile(it.path);
-                  const parsed = parsePostFile(file.text, it.slug);
+                  const parsed = mode === 'note' ? parseNoteFile(file.text, it.slug) : parsePostFile(file.text, it.slug);
                   it.title = parsed.title;
                   it.date = parsed.date;
                   it.tags = parsed.tags;
@@ -425,7 +505,7 @@
           writeCache(cache);
           app.items.sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0));
           renderList();
-          setState(`共 ${app.items.length} 篇`);
+          setState(mode === 'note' ? `共 ${app.items.length} 条碎片` : `共 ${app.items.length} 篇`);
         } catch (err) {
           el.conn.className = 'conn bad';
           el.conn.textContent = err.status ? `连接失败 ${err.status}` : '连接失败';
@@ -440,7 +520,8 @@
       /* ---------- 打开 / 新建 ---------- */
 
       function fillEditor({ title, date, tags, body }) {
-        el.title.value = title || '';
+        // 碎片没有标题：那个输入框在 note 模式下是隐藏的，值也不该带出来
+        el.title.value = app.mode === 'note' ? '' : title || '';
         el.date.value = toLocalInput(date || nowStamp());
         el.tags.value = (tags || []).join(', ');
         el.body.value = body || '';
@@ -466,7 +547,7 @@
           const file = await app.gh.getFile(meta.path);
           app.sha = file.sha;
           el.btnDelete.disabled = false;
-          const parsed = parsePostFile(file.text, slug);
+          const parsed = app.mode === 'note' ? parseNoteFile(file.text, slug) : parsePostFile(file.text, slug);
           if (draft && draft.savedAt) {
             fillEditor(draft);
             app.dirty = true;
@@ -489,20 +570,33 @@
 
       function newPost(focus = true) {
         if (app.dirty && app.slug) saveDraft();
+        const note = app.mode === 'note';
+        const stamp = nowStamp();
         app.slug = '';
         app.sha = null;
-        app.slugTouched = false;
+        app.slugTouched = note;
         el.btnDelete.disabled = true;
-        el.slug.value = '';
         el.search.value = '';
-        fillEditor({ title: '', date: nowStamp(), tags: [], body: '' });
+        fillEditor({ title: '', date: stamp, tags: [], body: '' });
+
+        if (note) {
+          // 碎片用时刻当路径，不需要标题，也就不用先生成 slug
+          const s = noteSlug(stamp);
+          el.slug.value = s;
+          app.slug = s;
+          el.body.placeholder = '记点什么…一两句话就行';
+        } else {
+          el.slug.value = '';
+          el.body.placeholder = '从这里开始写…';
+        }
+
         app.dirty = false;
         document.body.classList.remove('view-list');
         document.body.classList.add('view-edit');
         setTab('write');
-        setState('新篇 · 还没写标题');
+        setState(note ? '新碎片 · 直接写' : '新篇 · 还没写标题');
         renderList();
-        if (focus) el.title.focus();
+        if (focus) (note ? el.body : el.title).focus();
       }
 
       function ensureSlug() {
@@ -510,7 +604,7 @@
           app.slug = el.slug.value.trim();
           return app.slug;
         }
-        const s = slugFor(el.title.value, el.date.value || nowStamp());
+        const s = app.mode === 'note' ? noteSlug(el.date.value || nowStamp()) : slugFor(el.title.value, el.date.value || nowStamp());
         el.slug.value = s;
         app.slug = s;
         return s;
@@ -523,7 +617,15 @@
           openSheet();
           return;
         }
-        if (!el.title.value.trim()) {
+        const note = app.mode === 'note';
+
+        if (note) {
+          if (!el.body.value.trim()) {
+            toast('还没写内容');
+            el.body.focus();
+            return;
+          }
+        } else if (!el.title.value.trim()) {
           toast('先写个标题');
           el.title.focus();
           return;
@@ -535,23 +637,35 @@
           slug = assertSlug(ensureSlug());
         } catch (err) {
           toast(err.message);
-          el.slug.focus();
+          if (!note) el.slug.focus();
           return;
         }
 
-        const text = buildPostFile({
-          title: el.title.value,
-          date: el.date.value,
-          tags: el.tags.value,
-          draft: false,
-          body: el.body.value,
-          slug,
-        });
+        // 碎片没有标题，列表/提示里用正文第一句当名字
+        const label = note ? noteTitle(el.body.value) : el.title.value.trim();
+
+        const text = note
+          ? buildNoteFile({
+              date: el.date.value,
+              tags: el.tags.value,
+              draft: false,
+              body: el.body.value,
+            })
+          : buildPostFile({
+              title: el.title.value,
+              date: el.date.value,
+              tags: el.tags.value,
+              draft: false,
+              body: el.body.value,
+              slug,
+            });
 
         const isNew = !app.sha;
-        const message = `${isNew ? '新增' : '更新'}《${el.title.value.trim()}》`;
+        const message = note
+          ? `${isNew ? '新增' : '更新'}碎片 ${stampLabel(el.date.value)}`
+          : `${isNew ? '新增' : '更新'}《${label}》`;
 
-        const path = `${app.cfg.dir}/${slug}.md`;
+        const path = note ? notePath(slug, dirFor('note')) : `${dirFor('post')}/${slug}.md`;
 
         setBtnBusy(el.btnPublish, true, '发布中…');
         beginBusy('正在推送…');
@@ -575,9 +689,9 @@
           clearDraft(slug);
 
           const cache = readCache();
-          cache[`${app.cfg.dir}/${slug}.md`] = {
+          cache[path] = {
             sha: result.sha,
-            title: el.title.value.trim(),
+            title: label,
             date: el.date.value,
             tags: normalizeTags(el.tags.value),
           };
@@ -587,16 +701,16 @@
           if (!app.items.some((it) => it.slug === slug)) {
             app.items.unshift({
               slug,
-              path: `${app.cfg.dir}/${slug}.md`,
+              path,
               sha: result.sha,
-              title: el.title.value.trim(),
+              title: label,
               date: el.date.value,
               tags: normalizeTags(el.tags.value),
             });
           }
           renderList();
 
-          toast('已发布，云端会自动构建');
+          toast(note ? '碎片已发布，云端会自动构建' : '已发布，云端会自动构建');
           newPost(false); // 发布完清空当前页，直接开始下一篇（不弹键盘）
           setState(`已发布 · ${at}`);
         } catch (err) {
@@ -623,8 +737,12 @@
           toast('列表里找不到这篇，先点刷新');
           return;
         }
+        const note = app.mode === 'note';
         const title = meta.title || slug;
-        if (!confirm(`确定删除《${title}》？\n\n会从仓库删掉 ${meta.path}，云端随后重新构建，站点上就看不到了。`)) return;
+        const ask = note
+          ? `确定删除这条碎片？\n\n${meta.path}\n\n会从仓库删掉这个文件，云端随后重新构建，站点上就看不到了。`
+          : `确定删除《${title}》？\n\n会从仓库删掉 ${meta.path}，云端随后重新构建，站点上就看不到了。`;
+        if (!confirm(ask)) return;
 
         beginBusy('正在删除…');
         try {
@@ -635,7 +753,7 @@
             // 远程已经没了（比如另一台设备删过），那就只清本地
             if (err.status !== 404) throw err;
           }
-          if (sha) await app.gh.deleteFile(meta.path, sha, `删除《${title}》`);
+          if (sha) await app.gh.deleteFile(meta.path, sha, note ? `删除碎片 ${stampLabel(meta.date)}` : `删除《${title}》`);
 
           clearDraft(slug);
           app.items = app.items.filter((it) => it.slug !== slug);
@@ -692,6 +810,7 @@
         el.cfgBranch.value = cfg.branch || 'main';
         el.cfgDir.value = cfg.dir || POSTS_DIR;
         el.cfgToken.value = cfg.token || '';
+        el.cfgNotesHint.textContent = `碎片会存到 ${notesDirFor(cfg.dir || POSTS_DIR)}（跟随文章目录自动推导）`;
         el.sheet.classList.add('open');
         el.cfgRepo.focus();
       }
@@ -1002,14 +1121,18 @@
 
       el.search.addEventListener('input', renderList);
       el.btnNew.addEventListener('click', newPost);
+      el.segs.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-mode]');
+        if (btn) switchMode(btn.dataset.mode);
+      });
       document.getElementById('btnRefresh').addEventListener('click', refresh);
       document.getElementById('btnSettings').addEventListener('click', openSheet);
       document.getElementById('btnSaveCfg').addEventListener('click', saveCfg);
       document.getElementById('btnCancelCfg').addEventListener('click', () => el.sheet.classList.remove('open'));
       el.btnSave.addEventListener('click', () => {
-        if (!el.slug.value.trim() && el.title.value.trim()) ensureSlug();
+        if (!el.slug.value.trim()) ensureSlug();
         if (!app.slug) {
-          toast('先写标题，或用日期做路径');
+          toast(app.mode === 'note' ? '先写点内容' : '先写标题，或用日期做路径');
           ensureSlug();
         }
         saveDraft();
@@ -1103,6 +1226,15 @@
       });
 
       el.date.addEventListener('change', () => {
+        if (app.mode === 'note') {
+          // 碎片的时间就是文件名，改了时间就得跟着改路径
+          if (!app.sha) {
+            const s = noteSlug(el.date.value || nowStamp());
+            el.slug.value = s;
+            app.slug = s;
+          }
+          return;
+        }
         if (!app.slugTouched) el.slug.value = slugFor(el.title.value, el.date.value);
       });
 
@@ -1168,6 +1300,12 @@
       /* ---------- 启动 ---------- */
 
       (function boot() {
+        try {
+          if (localStorage.getItem(MODE_KEY) === 'note') app.mode = 'note';
+        } catch {
+          /* 默认还是文章 */
+        }
+        applyMode(app.mode);
         el.date.value = toLocalInput(nowStamp());
         schedulePreview();
         app.cfg = readCfg();
