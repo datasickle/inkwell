@@ -304,10 +304,19 @@ const ogImage = firstLocalImage(post.body) ? `/og/${post.id}.png` : undefined;
 
       function close() {
         if (!overlay) return;
+        const root = document.documentElement;
         overlay.classList.remove("on");
-        document.documentElement.classList.remove("lightbox-open");
+        // body 一解除 fixed，文档就回到顶部；而全局是 scroll-behavior: smooth，
+        // 直接 scrollTo 会变成一段「从顶部滑下来」的动画，看着像页面重新加载了一遍。
+        // 这一步必须瞬时复位，所以先把 smooth 临时关掉，下一帧再还原。
+        const prevBehavior = root.style.scrollBehavior;
+        root.style.scrollBehavior = "auto";
+        root.classList.remove("lightbox-open");
         document.body.style.top = "";
         window.scrollTo(0, scrollY);
+        requestAnimationFrame(() => {
+          root.style.scrollBehavior = prevBehavior;
+        });
         const dying = overlay;
         overlay = null;
         window.setTimeout(() => dying.remove(), 220);
