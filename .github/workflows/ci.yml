@@ -1,0 +1,65 @@
+name: 构建与测试
+
+# 目的：每次推送都替人跑一遍「构建 + 五套自测」，坏在合并前而不是被人发现。
+# Cloudflare Pages 自己也会构建，但它只告诉你「部署成功/失败」，不跑测试。
+# Cloudflare 构建环境缺 devDependencies 会白屏，所以这里显式 --include=dev。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci --include=dev
+
+      - name: 构建（图片优化 + astro build + 复制写作台）
+        run: npm run build
+
+      - name: 写作台逻辑（95+ 断言）
+        run: node tests/app-core.mjs
+
+      - name: 鉴权与静态资源
+        run: node tests/auth.mjs
+
+      - name: 图片管线
+        run: node tests/image.mjs
+
+      - name: 碎片
+        run: node tests/notes.mjs
+
+      - name: 首页 / 全部文章 / 归档
+        run: node tests/pages.mjs
+
+      - name: 写作台本地服务
+        run: node tests/api.mjs
+
+      - name: 一键推送链路
+        run: node tests/push.mjs
+
+      - name: 失败时留一份产物
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-failure
+          path: dist
+          retention-days: 3
+          if-no-files-found: ignore
