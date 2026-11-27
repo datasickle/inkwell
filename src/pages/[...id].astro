@@ -6,6 +6,7 @@ import BackToPrev from "../components/BackToPrev.astro";
 import { getCollection, render } from "astro:content";
 import type { CollectionEntry } from "astro:content";
 import { readingTime, firstLocalImage } from "../lib/format";
+import { heroImage } from "../lib/images";
 import { groupByTag } from "../lib/tags";
 
 export async function getStaticPaths() {
@@ -42,7 +43,10 @@ const { title, date, tags, summary } = post.data;
 const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
 
 // 正文有站内配图就用构建期裁的分享卡，没有则回落到全站默认那张
-const ogImage = firstLocalImage(post.body) ? `/og/${post.id}.png` : undefined;
+const firstImage = firstLocalImage(post.body);
+const ogImage = firstImage ? `/og/${post.id}.png` : undefined;
+// 首图（LCP 候选）提前在 <head> 里取，别等解析到正文
+const preload = heroImage(firstImage);
 ---
 
 <Base
@@ -52,6 +56,7 @@ const ogImage = firstLocalImage(post.body) ? `/og/${post.id}.png` : undefined;
   ogImage={ogImage}
   publishedTime={date.toISOString()}
   tags={tags}
+  preload={preload ?? undefined}
   readingPrefs
 >
   {/* 阅读进度条：固定在页头之上，宽度由脚本按正文进度缩放 */}

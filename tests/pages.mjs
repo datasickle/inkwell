@@ -52,5 +52,19 @@ const sitemap = readFileSync(join(DIST, 'sitemap-0.xml'), 'utf8');
 ok('sitemap 收了 /posts/', sitemap.includes('/posts/'));
 ok('sitemap 没收 /app', !sitemap.includes('/app/'));
 
+console.log('\n正文图片');
+// 有配图的文章：首图 eager + 提前 preload，其余 lazy
+const withImage = idx.filter((x) => x.type === 'post' && x.id === '20261125-blog')[0];
+if (withImage) {
+  const page = readFileSync(join(DIST, withImage.id, 'index.html'), 'utf8');
+  const imgs = [...page.matchAll(/<img [^>]*>/g)].map((m) => m[0]);
+  ok('文章页有图片', imgs.length > 0, `实际 ${imgs.length} 张`);
+  ok('首图不是 lazy', imgs[0] && !imgs[0].includes('loading="lazy"'));
+  ok('首图标了 high 优先级', imgs[0] && imgs[0].includes('fetchpriority="high"'));
+  ok('其余图片仍 lazy', imgs.slice(1).every((tag) => tag.includes('loading="lazy"')), `${imgs.slice(1).length} 张`);
+  ok('head 里有首图 preload', /<link rel="preload" as="image"[^>]*imagesrcset=/.test(page));
+  ok('图片都带 width/height', imgs.every((tag) => /\swidth="\d+"/.test(tag) && /\sheight="\d+"/.test(tag)));
+}
+
 console.log(`\n${pass} 通过，${fail} 失败`);
 process.exit(fail === 0 ? 0 : 1);

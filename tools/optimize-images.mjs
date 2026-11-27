@@ -1,10 +1,8 @@
-// 构建前把 public/images 里的原图转成 WebP 多尺寸，并写一份清单给 rehype 用。
+// 把 public/images 里的原图转成带多档宽度的 WebP，给 rehype 插件做 srcset。
+// 不用 astro:assets，因为文章正文里写的是 ![](/images/x.png) 这种普通 Markdown 图片，
+// 走不了 Astro 的 <Image>；在构建最前面统一转一次最省事。
 //
-// 为什么放在构建前、而不是走 astro:assets：正文里的图片是 ![](/images/x.png)
-// 这种绝对路径（写作台就是这么插的），Astro 的图片组件管不到它。
-// 在这里统一转一次，源码里 Markdown 的写法一个字都不用改。
-//
-// sharp 是 astro 的依赖，正常情况下都在；万一没装就跳过，让构建继续。
+// sharp 是 astro 的依赖，通常已经躺在 node_modules 里；装不上就跳过，构建照常。
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,18 +10,20 @@ import path from 'node:path';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const SRC = path.join(ROOT, 'public', 'images');
 const OUT = path.join(SRC, 'opt');
-// 清单放在 .astro/ 里：它是构建中间产物，不该跟着 public/ 被发布出去
+// 清单放 .astro/ 下，不放在 public/ 里，免得被当成静态资源一起发出去。
 const MANIFEST = path.join(ROOT, '.astro', 'images-manifest.json');
 
-const WIDTHS = [960, 1600];
-const QUALITY = 80;
+const WIDTHS = [720, 960, 1600];
+const QUALITY = 70;
 const EXT = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+// 图标和头像有各自的尺寸用途，不进正文管线，也免得在 opt/ 里多出两份副本。
+const SKIP = /^(icon-|avatar)/i;
 
 let sharp;
 try {
   ({ default: sharp } = await import('sharp'));
 } catch {
-  console.warn('[images] 没有可用的 sharp，跳过图片优化');
+  console.warn('[images] 没装上 sharp，跳过图片优化');
   process.exit(0);
 }
 
@@ -33,6 +33,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const files = fs
   .readdirSync(SRC, { withFileTypes: true })
   .filter((d) => d.isFile() && EXT.has(path.extname(d.name).toLowerCase()))
+  .filter((d) => !SKIP.test(d.name))
   .map((d) => d.name)
   .sort();
 
@@ -51,7 +52,7 @@ for (const name of files) {
     const height = meta.height ?? 0;
     if (!width || !height) continue;
 
-    // 只生成不超过原图宽度的尺寸，避免把小图放大糊掉
+    // 不放大：原图比目标窄就只保留原宽那一档。
     const widths = [...new Set(WIDTHS.map((w) => Math.min(w, width)))].sort((a, b) => a - b);
     const sources = [];
 
@@ -68,7 +69,7 @@ for (const name of files) {
 
       const info = await sharp(srcFile)
         .resize({ width: w, withoutEnlargement: true })
-        .webp({ quality: QUALITY, effort: 4 })
+        .webp({ quality: QUALITY, effort: 6 })
         .toFile(outFile);
 
       sources.push({ w: info.width, h: info.height, src: `/images/opt/${outName}` });
@@ -87,7 +88,7 @@ for (const name of files) {
 fs.mkdirSync(path.dirname(MANIFEST), { recursive: true });
 fs.writeFileSync(MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
 
-// 清掉不再被引用的旧产物（改图或删图之后会留下孤儿文件）
+// 清掉没人引用的旧产物（改过宽度档或删过图之后会留下孤儿）。
 const keep = new Set(Object.values(manifest).flatMap((e) => e.sources.map((s) => path.basename(s.src))));
 for (const name of fs.readdirSync(OUT)) {
   if (name === 'manifest.json') continue;

@@ -1,11 +1,11 @@
-// 从 public/images/icon-source.jpg 生成站点需要的各种图标尺寸。
+// 从 tools/icon-source.jpg 生成站点需要的各种图标尺寸（原图不进 public，免得被发到线上）。
 // 跑法：node tools/make-icons.mjs
 // 只在换图标时手动跑一次；产物是提交进仓库的静态文件，构建时不需要 sharp。
 
 import sharp from "sharp";
 import { mkdirSync } from "node:fs";
 
-const SRC = "public/images/icon-source.jpg";
+const SRC = "tools/icon-source.jpg";
 const WHITE = { r: 255, g: 255, b: 255, alpha: 1 };
 
 /** 方形裁切 + 纯白底（原图是 JPEG，没有透明通道，深色背景下白底更像贴纸） */

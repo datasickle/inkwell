@@ -34,6 +34,9 @@ jobs:
       - name: 构建（图片优化 + astro build + 复制写作台）
         run: npm run build
 
+      - name: 正文体检（图片 alt、站内链接、图片文件）
+        run: node tools/check-content.mjs
+
       - name: 写作台逻辑（95+ 断言）
         run: node tests/app-core.mjs
 

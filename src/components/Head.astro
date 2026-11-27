@@ -12,6 +12,8 @@ interface Props {
   /** 有修订时间再传；没有就沿用发布时间 */
   updatedTime?: string;
   tags?: string[];
+  /** 正文首图：文章页传，用来在 <head> 里提前取图（LCP） */
+  preload?: { src: string; srcSet: string; sizes: string };
 }
 
 const {
@@ -22,6 +24,7 @@ const {
   publishedTime,
   updatedTime,
   tags = [],
+  preload,
 } = Astro.props;
 
 const pageTitle = title ? `${title} — ${site.title}` : site.title;
@@ -81,6 +84,16 @@ const jsonLdText = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 <link rel="alternate" type="application/rss+xml" title={site.title} href={new URL("/rss.xml", Astro.site ?? Astro.url)} />
 
 <title>{pageTitle}</title>
+{preload && (
+  <link
+    rel="preload"
+    as="image"
+    href={preload.src}
+    imagesrcset={preload.srcSet}
+    imagesizes={preload.sizes}
+    fetchpriority="high"
+  />
+)}
 <meta name="title" content={pageTitle} />
 <meta name="description" content={pageDesc} />
 <meta name="author" content={site.author} />
