@@ -23,19 +23,18 @@ const { showReadingPrefs = false } = Astro.props;
         <BackToTop />
       </div>
     </div>
-    <div class="flex justify-between items-center gap-4 text-sm">
-      <div class="truncate">
-        &copy; {year} {site.author}
-        <span class="mx-1.5 opacity-40" aria-hidden="true">·</span>
-        <a href="/license/" class="opacity-70 underline decoration-black/20 underline-offset-2 hover:opacity-100 hover:decoration-current dark:decoration-white/25">
-          内容 CC BY-NC-SA 4.0
-        </a>
-        <span class="mx-1.5 opacity-40" aria-hidden="true">·</span>
-        <a href="/license/" class="opacity-70 underline decoration-black/20 underline-offset-2 hover:opacity-100 hover:decoration-current dark:decoration-white/25">
-          代码 MIT
-        </a>
+    {/* 手机上分两行：上面是版权与许可，下面是图标按钮。挤在一行会让中文许可文字被截断、图标换行 */}
+    <div class="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div class="text-[13px] leading-6 sm:flex sm:items-center sm:gap-1.5 sm:truncate sm:text-sm">
+        <span class="block whitespace-nowrap sm:inline">&copy; {year} {site.author}</span>
+        <span class="hidden opacity-40 sm:inline" aria-hidden="true">·</span>
+        <span class="block whitespace-nowrap opacity-90">
+          <a href="/license/" class="underline decoration-black/20 underline-offset-2 hover:decoration-current dark:decoration-white/25">内容 CC BY-NC-SA 4.0</a>
+          <span class="mx-1.5 opacity-40" aria-hidden="true">·</span>
+          <a href="/license/" class="underline decoration-black/20 underline-offset-2 hover:decoration-current dark:decoration-white/25">代码 MIT</a>
+        </span>
       </div>
-      <div class="flex flex-wrap gap-1 items-center">
+      <div class="flex items-center gap-1 self-end sm:self-auto">
         {showReadingPrefs && (
           <>
             <ReadingPrefs />
