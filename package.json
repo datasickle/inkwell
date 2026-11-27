@@ -19,6 +19,7 @@
     "test:notes": "node tests/notes.mjs",
     "test:pages": "node tests/pages.mjs",
     "check:content": "node tools/check-content.mjs",
+    "check:deploy": "node tools/check-deploy.mjs",
     "android:sync": "cap sync android",
     "android:open": "cap open android",
     "app:copy": "node tools/copy-app.mjs"

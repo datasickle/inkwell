@@ -66,3 +66,22 @@ jobs:
           path: dist
           retention-days: 3
           if-no-files-found: ignore
+
+  # Cloudflare Pages 构建失败时会保留旧版本继续返回 200，看页面还在很容易误判成上线了。
+  # 这个任务抓 /version.json，等里面的 commit 变成这次推送的 sha；等不到就是红的，
+  # GitHub 会给仓库主人发失败通知——这样「部署没生效」不再需要人肉发现。
+  deploy:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 等线上换成这次提交
+        run: node tools/check-deploy.mjs "${{ github.sha }}" --wait 600

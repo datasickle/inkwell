@@ -66,5 +66,15 @@ if (withImage) {
   ok('图片都带 width/height', imgs.every((tag) => /\swidth="\d+"/.test(tag) && /\sheight="\d+"/.test(tag)));
 }
 
+console.log('\n部署探针');
+const versionFile = join(DIST, 'version.json');
+ok('生成了 /version.json', existsSync(versionFile));
+if (existsSync(versionFile)) {
+  const v = JSON.parse(readFileSync(versionFile, 'utf8'));
+  ok('带 commit', typeof v.commit === 'string' && v.commit.length > 0);
+  ok('带构建时间', !Number.isNaN(Date.parse(v.builtAt)));
+  ok('文章数对得上', v.posts === idx.filter((x) => x.type === 'post').length, `实际 ${v.posts}`);
+}
+
 console.log(`\n${pass} 通过，${fail} 失败`);
 process.exit(fail === 0 ? 0 : 1);
