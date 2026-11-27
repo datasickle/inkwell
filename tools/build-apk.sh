@@ -49,7 +49,8 @@ fi
 cd "$ROOT"
 
 echo "[1/3] 把写作台同步进原生工程"
-npx --no-install cap sync android
+# 直接调 CLI 入口，不走 npx：这台机器上 node 是从别处借的，没有配套的 npm/npx
+node "$ROOT/node_modules/@capacitor/cli/bin/capacitor" sync android
 
 echo
 echo "[2/3] 编译"
