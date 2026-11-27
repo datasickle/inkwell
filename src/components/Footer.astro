@@ -23,18 +23,14 @@ const { showReadingPrefs = false } = Astro.props;
         <BackToTop />
       </div>
     </div>
-    {/* 手机上分两行：上面是版权与许可，下面是图标按钮。挤在一行会让中文许可文字被截断、图标换行 */}
-    <div class="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <div class="text-[13px] leading-6 sm:flex sm:items-center sm:gap-1.5 sm:truncate sm:text-sm">
-        <span class="block whitespace-nowrap sm:inline">&copy; {year} {site.author}</span>
-        <span class="hidden opacity-40 sm:inline" aria-hidden="true">·</span>
-        <span class="block whitespace-nowrap opacity-90">
-          <a href="/license/" class="underline decoration-black/20 underline-offset-2 hover:decoration-current dark:decoration-white/25">内容 CC BY-NC-SA 4.0</a>
-          <span class="mx-1.5 opacity-40" aria-hidden="true">·</span>
-          <a href="/license/" class="underline decoration-black/20 underline-offset-2 hover:decoration-current dark:decoration-white/25">代码 MIT</a>
-        </span>
-      </div>
-      <div class="flex items-center gap-1 self-end sm:self-auto">
+    {/*
+      手机上两行居中：第一行「署名 + 图标」，第二行许可；桌面恢复一行（署名、许可在左，图标在右）。
+      靠 order 重排，避免把同一组图标写两遍——按钮 id 是唯一绑定，重复会坏。
+    */}
+    <div class="flex flex-wrap items-center justify-center gap-x-2 gap-y-2 text-[13px] leading-6 sm:flex-nowrap sm:justify-between sm:gap-4 sm:text-sm">
+      <span class="order-1 whitespace-nowrap">&copy; {year} {site.author}</span>
+      <span class="hidden opacity-40 sm:order-1 sm:inline" aria-hidden="true">·</span>
+      <div class="order-2 flex items-center gap-1 sm:order-3">
         {showReadingPrefs && (
           <>
             <ReadingPrefs />
@@ -133,6 +129,11 @@ const { showReadingPrefs = false } = Astro.props;
           </svg>
         </a>
       </div>
+      <span class="order-3 flex basis-full items-center justify-center gap-x-2 whitespace-nowrap opacity-90 sm:order-2 sm:mr-auto sm:basis-auto">
+        <a href="/license/" class="underline decoration-black/20 underline-offset-2 hover:decoration-current dark:decoration-white/25">内容 CC BY-NC-SA 4.0</a>
+        <span class="opacity-40" aria-hidden="true">·</span>
+        <a href="/license/" class="underline decoration-black/20 underline-offset-2 hover:decoration-current dark:decoration-white/25">代码 MIT</a>
+      </span>
     </div>
   </Container>
 </footer>
