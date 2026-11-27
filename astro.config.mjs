@@ -84,6 +84,12 @@ function normalizeFenceLang() {
 
 export default defineConfig({
   site: siteConfig.url,
+  // 悬停/聚焦时先把下一页的 HTML 拿回来，点击就是本地命中。
+  // MPA 专用：不做客户端路由，只是让浏览器提前缓存，不影响主题与阅读偏好那几段脚本。
+  prefetch: {
+    prefetchAll: true,
+    defaultStrategy: "hover",
+  },
   integrations: [
     // 写作台 /app 与搜索索引不参与搜索收录
     sitemap({
