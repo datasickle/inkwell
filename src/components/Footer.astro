@@ -23,9 +23,17 @@ const { showReadingPrefs = false } = Astro.props;
         <BackToTop />
       </div>
     </div>
-    <div class="flex justify-between items-center text-sm">
+    <div class="flex justify-between items-center gap-4 text-sm">
       <div class="truncate">
         &copy; {year} {site.author}
+        <span class="mx-1.5 opacity-40" aria-hidden="true">·</span>
+        <a href="/license/" class="opacity-70 underline decoration-black/20 underline-offset-2 hover:opacity-100 hover:decoration-current dark:decoration-white/25">
+          内容 CC BY-NC-SA 4.0
+        </a>
+        <span class="mx-1.5 opacity-40" aria-hidden="true">·</span>
+        <a href="/license/" class="opacity-70 underline decoration-black/20 underline-offset-2 hover:opacity-100 hover:decoration-current dark:decoration-white/25">
+          代码 MIT
+        </a>
       </div>
       <div class="flex flex-wrap gap-1 items-center">
         {showReadingPrefs && (

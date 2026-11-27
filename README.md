@@ -7,6 +7,9 @@ Astro 静态博客 + 写作台（**inkwell editor**）。**内容只有一份真
 写作台（网页 / App）  ──GitHub API──▶  GitHub 仓库  ──自动构建──▶  Cloudflare Pages
 ```
 
+> **许可**：本站代码采用 [MIT](LICENSE)；文章、碎片和站内自制图片采用 CC BY-NC-SA 4.0，**不在 MIT 范围内**。
+> 详细的授权范围见站内 `/license/` 页。
+
 ## 线上地址
 
 | 入口 | 地址 |

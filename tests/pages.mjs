@@ -76,5 +76,18 @@ if (existsSync(versionFile)) {
   ok('文章数对得上', v.posts === idx.filter((x) => x.type === 'post').length, `实际 ${v.posts}`);
 }
 
+console.log('\n许可声明');
+ok('/license/ 页存在', existsSync(join(DIST, 'license', 'index.html')));
+const homeHtml = readFileSync(join(DIST, 'index.html'), 'utf8');
+ok('页脚有内容许可', homeHtml.includes('CC BY-NC-SA 4.0'));
+ok('页脚链到 /license/', homeHtml.includes('href="/license/"'));
+if (withImage) {
+  const article = readFileSync(join(DIST, withImage.id, 'index.html'), 'utf8');
+  ok('文章页有许可说明', article.includes('CC BY-NC-SA 4.0'));
+  ok('head 里有 rel=license', article.includes('rel="license"'));
+}
+const rssXml = readFileSync(join(DIST, 'rss.xml'), 'utf8');
+ok('feed 里带 copyright', rssXml.includes('<copyright>'));
+
 console.log(`\n${pass} 通过，${fail} 失败`);
 process.exit(fail === 0 ? 0 : 1);

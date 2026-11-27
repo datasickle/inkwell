@@ -86,6 +86,7 @@ export async function GET(context) {
     <link>${xmlEscape(origin)}</link>
     <description>${xmlEscape(site.description)}</description>
     <language>zh-Hans</language>
+    <copyright>${xmlEscape(`© ${site.author} · 内容 CC BY-NC-SA 4.0 · ${origin}/license/`)}</copyright>
     <atom:link href="${xmlEscape(`${origin}/rss.xml`)}" rel="self" type="application/rss+xml" />
 ${items}
   </channel>

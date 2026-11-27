@@ -1,0 +1,62 @@
+---
+import Base from "../layouts/Base.astro";
+import Container from "../components/Container.astro";
+import Link from "../components/Link.astro";
+---
+
+<Base title="版权与许可" description="本站内容的版权与使用许可。">
+  <Container>
+    <div class="animate max-w-xl">
+      <h1 class="text-2xl font-semibold text-black dark:text-white">版权与许可</h1>
+
+      <section class="mt-8">
+        <h2 class="text-base font-semibold text-black dark:text-white">文章和碎片</h2>
+        <p class="mt-3 text-[15px] leading-7">
+          本站的文章、碎片以及站内自制图片，除特别注明外，均采用
+          <Link href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans">
+            CC BY-NC-SA 4.0
+          </Link>
+          许可。
+        </p>
+        <p class="mt-3 text-[15px] leading-7">
+          简单说：你可以转载、引用、改编，只要 ① 署我的名字并链接原文，② 不用于商业目的（公众号、带广告的聚合站都属于商业），③
+          改编后的作品沿用同样的许可。
+        </p>
+      </section>
+
+      <section class="mt-8">
+        <h2 class="text-base font-semibold text-black dark:text-white">代码</h2>
+        <p class="mt-3 text-[15px] leading-7">
+          本站的源代码（Astro 主题、写作台、构建工具、测试）采用
+          <Link href="https://opensource.org/license/mit">MIT</Link>
+          许可。文章内容不在 MIT 范围内。
+        </p>
+      </section>
+
+      <section class="mt-8">
+        <h2 class="text-base font-semibold text-black dark:text-white">图片</h2>
+        <p class="mt-3 text-[15px] leading-7">
+          站内自制的配图和插画随文章采用同一许可。文中引用的软件截图、海报等，版权属于原作者，仅作评论与说明用途；如需使用请向原作者取得授权。
+        </p>
+      </section>
+
+      <section class="mt-8">
+        <h2 class="text-base font-semibold text-black dark:text-white">转载之后</h2>
+        <p class="mt-3 text-[15px] leading-7">
+          全文转载请保留署名和原文链接。如果发现漏了，欢迎告诉我，我会补上——通常不是恶意。
+        </p>
+      </section>
+
+      <section class="mt-8">
+        <h2 class="text-base font-semibold text-black dark:text-white">联系</h2>
+        <p class="mt-3 text-[15px] leading-7">
+          <Link href="mailto:datasickle@gmail.com" underline={false}>datasickle@gmail.com</Link>
+        </p>
+      </section>
+
+      <p class="mt-10 text-[13px] leading-6 opacity-60">
+        这一页的许可是当前的；将来若有调整，以本页为准。
+      </p>
+    </div>
+  </Container>
+</Base>
