@@ -1,0 +1,139 @@
+---
+import type { ShareCardData } from "../lib/share-card";
+
+interface Props {
+  data: ShareCardData;
+  /** 弹层与图片的说明文字，文章页和碎片页叫法不同 */
+  label?: string;
+}
+
+const { data, label = "分享卡片" } = Astro.props;
+---
+
+    {/*
+      分享按钮先渲染成 hidden，由脚本判断能力后再显示：
+      没有 JS 的环境不该出现一个点了没反应的按钮。
+    */}
+    <div class="animate mt-12 flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div class="share-wrap">
+        <button
+          type="button"
+          id="share-btn"
+          class="share-btn"
+          hidden
+          aria-haspopup="menu"
+          aria-expanded="false"
+          aria-controls="share-menu"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            class="size-4 fill-none stroke-current"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 13v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6"></path>
+            <polyline points="16 7 12 3 8 7"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <span>分享</span>
+        </button>
+        <div id="share-menu" class="share-menu" role="menu" aria-label="分享方式" hidden>
+          <button type="button" class="share-menu-item" role="menuitem" data-share="copy">
+            <svg
+              viewBox="0 0 24 24"
+              class="size-4 fill-none stroke-current"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+              <path d="M5 15V6a2 2 0 0 1 2-2h9"></path>
+            </svg>
+            <span>复制链接</span>
+          </button>
+          <button
+            type="button"
+            class="share-menu-item"
+            role="menuitem"
+            data-share="native"
+            hidden
+          >
+            <svg
+              viewBox="0 0 24 24"
+              class="size-4 fill-none stroke-current"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="18" cy="5" r="3"></circle>
+              <circle cx="6" cy="12" r="3"></circle>
+              <circle cx="18" cy="19" r="3"></circle>
+              <line x1="8.6" y1="10.6" x2="15.4" y2="6.4"></line>
+              <line x1="8.6" y1="13.4" x2="15.4" y2="17.6"></line>
+            </svg>
+            <span>系统分享</span>
+          </button>
+          <button type="button" class="share-menu-item" role="menuitem" data-share="card">
+            <svg
+              viewBox="0 0 24 24"
+              class="size-4 fill-none stroke-current"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+              <circle cx="9" cy="10" r="1.6"></circle>
+              <path d="M4 17l5-4 4 3 3-2 4 3"></path>
+            </svg>
+            <span>存为图片</span>
+          </button>
+        </div>
+      </div>
+      <span
+        id="share-tip"
+        class="text-xs opacity-0 transition-opacity duration-300"
+        role="status"
+        aria-live="polite"></span>
+    </div>
+
+    <script
+      type="application/json"
+      id="share-card-data"
+      is:inline
+      set:html={JSON.stringify(data).replace(/</g, "\\u003c")}
+    />
+
+    <div id="share-card-modal" class="share-modal" hidden>
+      <div
+        class="share-modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}>
+        <img
+          id="share-card-img"
+          alt={label}
+          width="1080"
+          height="1350"
+          loading="lazy" />
+        <div class="share-modal-actions">
+          <a id="share-card-save" class="share-btn" download>保存图片</a>
+          <button id="share-card-share" class="share-btn" type="button" hidden
+            >分享图片</button
+          >
+          <button id="share-card-close" class="share-btn" type="button">关闭</button>
+        </div>
+        <p id="share-card-hint" class="share-modal-hint" hidden>
+          手机上没有「保存图片」时，可以长按上面的图片存进相册。
+        </p>
+      </div>
+    </div>
+<script>
+  import { setupShare } from "../lib/share";
+
+  setupShare();
+</script>

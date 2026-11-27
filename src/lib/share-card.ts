@@ -227,21 +227,34 @@ export async function createShareCard(data: ShareCardData): Promise<HTMLCanvasEl
   // 标题
   // 没有配图的卡片内容更少，字号放大一档，免得中间空一大块
   const hasImage = Boolean(data.image);
+  const tagTop = H - PAD - 190;
   const titleTop = 250;
   ctx.fillStyle = INK;
   ctx.font = `700 ${hasImage ? 60 : 72}px ${FONT}`;
   const titleLines = wrapText(ctx, data.title, W - PAD * 2, 3);
   const titleLineHeight = hasImage ? 84 : 100;
-  titleLines.forEach((line, i) => {
-    ctx.fillText(line, PAD, titleTop + i * titleLineHeight);
-  });
 
   // 摘要
-  const summaryTop = titleTop + titleLines.length * titleLineHeight + 40;
   const summaryLineHeight = hasImage ? 52 : 60;
+  ctx.font = `400 ${hasImage ? 30 : 34}px ${FONT}`;
+  const summaryLines = data.summary ? wrapText(ctx, data.summary, W - PAD * 2, hasImage ? 5 : 7) : [];
+
+  // 短文（尤其是碎片）整块内容很少，贴着顶部会显得头重脚轻，
+  // 就把「标题 + 摘要」整块在可用高度里往下挪一点
+  const blockHeight =
+    titleLines.length * titleLineHeight + 40 + summaryLines.length * summaryLineHeight;
+  const available = tagTop - titleTop - 60;
+  const shift = hasImage ? 0 : Math.max(0, Math.min((available - blockHeight) / 2, 260));
+
+  ctx.fillStyle = INK;
+  ctx.font = `700 ${hasImage ? 60 : 72}px ${FONT}`;
+  titleLines.forEach((line, i) => {
+    ctx.fillText(line, PAD, titleTop + shift + i * titleLineHeight);
+  });
+
+  const summaryTop = titleTop + shift + titleLines.length * titleLineHeight + 40;
   ctx.fillStyle = MUTED;
   ctx.font = `400 ${hasImage ? 30 : 34}px ${FONT}`;
-  const summaryLines = wrapText(ctx, data.summary, W - PAD * 2, hasImage ? 5 : 7);
   summaryLines.forEach((line, i) => {
     ctx.fillText(line, PAD, summaryTop + i * summaryLineHeight);
   });
@@ -272,7 +285,6 @@ export async function createShareCard(data: ShareCardData): Promise<HTMLCanvasEl
   ctx.textAlign = "left";
 
   // 标签胶囊
-  const tagTop = H - PAD - 190;
   ctx.font = `400 22px ${FONT}`;
   let tagX = PAD;
   for (const tag of data.tags.slice(0, 4)) {

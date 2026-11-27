@@ -75,6 +75,12 @@ export function fmtShort(date: Date): string {
   return `${m}/${d} ${hh}:${mm}`;
 }
 
+/** 11-23 20:14 —— 碎片的写法，用横杠跟文章的斜杠区分开 */
+export function fmtDayTime(date: Date): string {
+  const { m, d, hh, mm } = partsOf(date);
+  return `${m}-${d} ${hh}:${mm}`;
+}
+
 /** 2026-11-23T20:14:07+08:00 —— <time datetime> 用，机器可读且不带歧义 */
 export function isoZoned(date: Date): string {
   const { y, m, d, hh, mm, ss } = partsOf(date);

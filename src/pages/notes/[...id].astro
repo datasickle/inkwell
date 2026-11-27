@@ -2,10 +2,13 @@
 import Base from "../../layouts/Base.astro";
 import Container from "../../components/Container.astro";
 import BackToPrev from "../../components/BackToPrev.astro";
+import Share from "../../components/Share.astro";
 import { getCollection, render } from "astro:content";
 import type { CollectionEntry } from "astro:content";
 import { partsOf, isoZoned } from "../../lib/datetime";
 import { sortNotes, noteTitle } from "../../lib/notes";
+import { firstLocalImage } from "../../lib/format";
+import { heroImage } from "../../lib/images";
 import site from "../../../site.json";
 
 export async function getStaticPaths() {
@@ -35,6 +38,32 @@ const label = site.notesLabel;
 const title = noteTitle(note.body, 30);
 const p = partsOf(note.data.date);
 const stamp = `${p.y}-${p.m}-${p.d} ${p.hh}:${p.mm}`;
+
+// 分享卡片：和文章页同一套画法，只是标题取正文首句、日期用横杠
+const shot = heroImage(firstLocalImage(note.body));
+// 碎片没有摘要字段，标题又是正文第一句，直接用 excerptOf 会在卡上
+// 出现「标题 + 同一句话」的重复，所以把标题那段从摘要里剥掉
+const plain = (note.body ?? "")
+  .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+  .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+  .replace(/[`*_~#>]/g, "")
+  .replace(/\s+/g, " ")
+  .trim();
+const headText = title.replace(/…$/, "");
+const rest = plain.startsWith(headText)
+  ? plain.slice(headText.length).replace(/^[\s，。、,.:：;；-]+/, "")
+  : plain;
+const shareCard = {
+  title,
+  summary: rest.length >= 24 ? rest : "",
+  date: `${p.y}-${p.m}-${p.d}`,
+  tags: note.data.tags,
+  url: new URL(Astro.url.pathname, Astro.site ?? site.url).href,
+  site: site.title,
+  author: site.author,
+  domain: new URL(site.url).host,
+  image: shot?.src ?? null,
+};
 ---
 
 <Base
@@ -68,6 +97,14 @@ const stamp = `${p.y}-${p.m}-${p.d} ${p.hh}:${p.mm}`;
     <article class="animate">
       <Content />
     </article>
+
+    <Share data={shareCard} label={`${label}分享卡片`} />
+
+    <p class="animate mt-6 text-xs leading-6 opacity-55">
+      这条{label}采用
+      <a href="/license/" class="underline decoration-current/30 underline-offset-2 hover:decoration-current">CC BY-NC-SA 4.0</a>
+      许可，转载请注明作者与原文链接。
+    </p>
 
     <nav class="animate mt-14 flex flex-wrap justify-between gap-6 border-t border-black/10 pt-6 text-sm dark:border-white/15">
       <div class="max-w-[45%] space-y-1">

@@ -2,7 +2,7 @@
 import Base from "../../layouts/Base.astro";
 import Container from "../../components/Container.astro";
 import { getCollection } from "astro:content";
-import { yearOf, fmtShort, isoZoned } from "../../lib/datetime";
+import { yearOf, fmtDayTime, isoZoned } from "../../lib/datetime";
 import { excerptOf } from "../../lib/format";
 import { sortNotes } from "../../lib/notes";
 import site from "../../../site.json";
@@ -43,11 +43,11 @@ for (const note of notes) {
                   <a
                     href={`/notes/${note.id}/`}
                     class="note-card"
-                    aria-label={`${fmtShort(note.data.date)} 的${label}`}
+                    aria-label={`${fmtDayTime(note.data.date)} 的${label}`}
                   >
                     <div class="note-date">
                       <time datetime={isoZoned(note.data.date)}>
-                        {fmtShort(note.data.date)}
+                        {fmtDayTime(note.data.date)}
                       </time>
                     </div>
                     <p class="note-body">{excerptOf(note.body, 220)}</p>
