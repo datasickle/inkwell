@@ -205,7 +205,7 @@ const shareCard = {
     2) 点正文图片放大查看，Esc 或点任意处关闭
   */}
   <script>
-    import { onDoc, onWin } from "../lib/nav-cleanup";
+    import { onDoc, onWin, onPageLoad } from "../lib/nav-cleanup";
 
     /* ---------- 代码块复制 ---------- */
 
@@ -638,15 +638,16 @@ const shareCard = {
     }
 
     function boot() {
+      const article = document.querySelector<HTMLElement>("article");
+      // 换页后会由 astro:page-load 再调一次；同一份 DOM 只绑一次
+      if (!article || article.dataset.articleBound === "1") return;
+      article.dataset.articleBound = "1";
+
       enhanceCodeBlocks();
       setupLightbox();
       setupReading();
     }
 
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", boot);
-    } else {
-      boot();
-    }
+    onPageLoad(boot);
   </script>
 </Base>

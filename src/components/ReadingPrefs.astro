@@ -53,7 +53,7 @@
 </div>
 
 <script>
-  import { onDoc } from "../lib/nav-cleanup";
+  import { onDoc, onPageLoad } from "../lib/nav-cleanup";
 
   const STORAGE_KEY = "reading";
 
@@ -63,8 +63,9 @@
   type Prefs = Record<PrefKey, string>;
 
   const root = document.documentElement;
-  const button = document.getElementById("reading-prefs-button");
-  const panel = document.getElementById("reading-prefs-panel");
+  // 每次换页按钮都是新的 DOM，所以在 init 里取，不能在模块顶层缓存
+  let button: HTMLElement | null = null;
+  let panel: HTMLElement | null = null;
 
   function load(): Prefs {
     const values: Prefs = { ...DEFAULTS };
@@ -109,7 +110,14 @@
     button.setAttribute("aria-expanded", String(open));
   }
 
-  if (button && panel) {
+  function init() {
+    button = document.getElementById("reading-prefs-button");
+    panel = document.getElementById("reading-prefs-panel");
+    if (!button || !panel) return;
+    // 换页后会由 astro:page-load 再调一次；同一份 DOM 只绑一次
+    if (button.dataset.prefsBound === "1") return;
+    button.dataset.prefsBound = "1";
+
     let values = load();
     apply(values);
     sync(values);
@@ -143,4 +151,6 @@
       }
     });
   }
+
+  onPageLoad(init);
 </script>

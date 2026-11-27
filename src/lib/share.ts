@@ -10,6 +10,9 @@ export function setupShare() {
   const dataEl = document.getElementById("share-card-data");
   const modal = document.getElementById("share-card-modal");
   if (!btn || !menu || !tip || !modal) return;
+  // 换页后会由 astro:page-load 再调一次；同一份 DOM 只绑一次
+  if (btn.dataset.shareBound === "1") return;
+  btn.dataset.shareBound = "1";
 
   const itemCopy = menu.querySelector<HTMLButtonElement>('[data-share="copy"]');
   const itemNative = menu.querySelector<HTMLButtonElement>('[data-share="native"]');

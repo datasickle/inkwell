@@ -134,6 +134,7 @@ const { data, label = "分享卡片" } = Astro.props;
     </div>
 <script>
   import { setupShare } from "../lib/share";
+  import { onPageLoad } from "../lib/nav-cleanup";
 
-  setupShare();
+  onPageLoad(setupShare);
 </script>

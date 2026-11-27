@@ -39,10 +39,13 @@ import site from "../../site.json";
 </style>
 
 <script>
-  const input = document.getElementById("q");
-  const box = document.getElementById("res");
-  const meta = document.getElementById("meta");
-  const notesLabel = box.dataset.notesLabel || "碎片";
+  import { onPageLoad } from "../lib/nav-cleanup";
+
+  // 换页后这些元素都是新的，所以在 init 里取，不在模块顶层缓存
+  let input: HTMLInputElement | null = null;
+  let box: HTMLElement | null = null;
+  let meta: HTMLElement | null = null;
+  let notesLabel = "碎片";
   let items = [];
 
   const esc = (s) =>
@@ -112,6 +115,15 @@ import site from "../../site.json";
       .join("");
   }
 
+  function init() {
+    input = document.getElementById("q") as HTMLInputElement | null;
+    box = document.getElementById("res");
+    meta = document.getElementById("meta");
+    if (!input || !box) return;
+    if (input.dataset.bound === "1") return;
+    input.dataset.bound = "1";
+    notesLabel = box.dataset.notesLabel || "碎片";
+
   input.addEventListener("input", () => {
     render();
     const url = new URL(location.href);
@@ -132,4 +144,7 @@ import site from "../../site.json";
     .catch(() => {
       box.innerHTML = `<p class="text-sm">索引没加载出来，刷新一下试试。</p>`;
     });
+  }
+
+  onPageLoad(init);
 </script>
