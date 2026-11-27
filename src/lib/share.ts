@@ -86,6 +86,32 @@ export function setupShare() {
 
   /* ---- 复制链接 ---- */
 
+  // 优先用异步剪贴板 API。它可能「存在但被拒」：页面未聚焦、权限被策略拦、
+  // 隐私模式下都会 reject，所以要 try 一次再降级到 execCommand。
+  async function copyText(text: string) {
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch {
+        /* 落到下面的兜底 */
+      }
+    }
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.cssText = "position:fixed;top:0;left:-9999px;opacity:0";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } finally {
+      document.body.removeChild(ta);
+    }
+    if (!ok) throw new Error("copy failed");
+  }
+
   itemCopy.addEventListener("click", async () => {
     closeMenu(false);
     try {
