@@ -1,0 +1,22 @@
+# 浏览器缓存策略（Cloudflare Pages 的 _headers 文件，不是 nginx 的）
+#
+# 起因：Pages 默认给所有静态文件都发 `Cache-Control: public, max-age=0, must-revalidate`，
+# 而且 HTML 不带 ETag。于是「悬停预取」拿到的 HTML 无法复用，点击还是整页重下。
+# 这里做两件事：
+#   1. HTML 允许缓存 60 秒——站内跳转能命中预取，ttfb 从 ~180ms 降到 ~5ms；
+#   2. 带哈希的静态资源改成长缓存——文件名里有内容哈希，内容一变文件名就变，不存在脏读。
+#
+# 取舍：页面最多可能旧 60 秒。刚部署完的 60 秒内刷新，看到的可能还是上一版。
+# 更长的过期时间不要加：Cloudflare Pages 只保留当前部署，旧 HTML 引用的旧哈希文件会 404。
+
+/*
+  Cache-Control: public, max-age=60, must-revalidate
+
+# 规则按文件顺序生效；窄规则放在宽规则后面，并用 `!` 先摘掉上面那条，否则两个值会被逗号拼接。
+/_astro/*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
+
+/images/*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
