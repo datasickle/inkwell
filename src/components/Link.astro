@@ -5,9 +5,11 @@ interface Props {
   underline?: boolean;
   class?: string;
   ariaCurrent?: "page" | "true" | undefined;
+  /** 覆盖全站默认的悬停预取策略；导航这种「一定会点」的链接用 viewport，进页面就开始取 */
+  prefetch?: "hover" | "tap" | "viewport" | "load";
 }
 
-const { href, external, underline = true, class: className, ariaCurrent } = Astro.props;
+const { href, external, underline = true, class: className, ariaCurrent, prefetch } = Astro.props;
 
 const base =
   "inline-block decoration-black/15 dark:decoration-white/30 " +
@@ -21,6 +23,7 @@ const base =
   target={external ? "_blank" : "_self"}
   rel={external ? "noopener noreferrer" : undefined}
   aria-current={ariaCurrent}
+  data-astro-prefetch={prefetch}
   class:list={[base, underline && "underline underline-offset-2", className]}
 >
   <slot />
