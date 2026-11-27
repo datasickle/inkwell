@@ -821,9 +821,13 @@ export function notesDirFor(dir = POSTS_DIR) {
 
 /** 碎片用时刻当文件名：20261126-1432。没有标题，就靠时间定位 */
 export function noteSlug(date = nowStamp()) {
-  const m = String(date || '').match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
-  if (!m) return `${todayISO().replace(/-/g, '')}-0000`;
-  return `${m[1]}${m[2]}${m[3]}-${m[4]}${m[5]}`;
+  const s = String(date || '');
+  const full = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (full) return `${full[1]}${full[2]}${full[3]}-${full[4]}${full[5]}`;
+  // 只给到日期时保留那一天，不要偷偷换成今天
+  const day = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (day) return `${day[1]}${day[2]}${day[3]}-0000`;
+  return `${todayISO().replace(/-/g, '')}-0000`;
 }
 
 export function notePath(slug, dir = NOTES_DIR) {
