@@ -70,28 +70,22 @@ const preload = heroImage(firstImage);
     </div>
 
     <div class="my-10 space-y-1">
-      <div class="animate flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
+      <div class="animate flex flex-wrap items-center gap-x-1.5 gap-y-1.5 text-sm">
         <FormattedDate date={date} />
-        <span class="opacity-40">{"·"}</span>
+        <span class="opacity-40" aria-hidden="true">{"·"}</span>
         <span>{readingTime(post.body)} 分钟</span>
         {
           tags.length > 0 && (
-            <>
-              <span class="opacity-40">{"·"}</span>
-              <span class="flex flex-wrap items-center gap-x-1.5 opacity-70">
-                {tags.map((tag, i) => (
-                  <>
-                    {i > 0 && <span class="opacity-40">{"·"}</span>}
-                    <a
-                      href={`/tags#${tagAnchors[tag] ?? ""}`}
-                      class="transition-colors duration-300 hover:text-black hover:opacity-100 dark:hover:text-white"
-                    >
-                      {tag}
-                    </a>
-                  </>
-                ))}
-              </span>
-            </>
+            <span class="flex flex-wrap items-center gap-1.5">
+              {tags.map((tag) => (
+                <a
+                  href={`/tags#${tagAnchors[tag] ?? ""}`}
+                  class="rounded-full border border-black/10 px-2 py-0.5 text-xs leading-5 transition-colors duration-300 opacity-75 hover:border-black/25 hover:text-black hover:opacity-100 dark:border-white/15 dark:hover:border-white/30 dark:hover:text-white"
+                >
+                  {tag}
+                </a>
+              ))}
+            </span>
           )
         }
       </div>
