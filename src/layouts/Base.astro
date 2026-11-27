@@ -3,6 +3,7 @@ import Head from "../components/Head.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import "../styles/global.css";
+import { ClientRouter } from "astro:transitions";
 import site from "../../site.json";
 
 interface Props {
@@ -26,6 +27,11 @@ const { readingPrefs = false, ...headProps } = Astro.props;
 <html lang={site.lang}>
   <head>
     <Head {...headProps} />
+    <!--
+      站内跳转不再整页重载：浏览器不转刷新按钮、不重播 favicon、不闪白屏。
+      带状态迁移的脚本要自己处理「换页后重新初始化」，见 src/lib/nav-cleanup.ts。
+    -->
+    <ClientRouter />
   </head>
   <body>
     <Header />
@@ -33,5 +39,14 @@ const { readingPrefs = false, ...headProps } = Astro.props;
       <slot />
     </main>
     <Footer showReadingPrefs={readingPrefs} />
+    <script>
+      // 绑定一次即可：文档不卸载，这段脚本也只会跟着首个页面执行
+      import { resetOnNavigate } from "../lib/nav-cleanup";
+      const flag = "__navCleanupBound";
+      if (!(window as unknown as Record<string, boolean>)[flag]) {
+        (window as unknown as Record<string, boolean>)[flag] = true;
+        document.addEventListener("astro:before-swap", () => resetOnNavigate());
+      }
+    </script>
   </body>
 </html>

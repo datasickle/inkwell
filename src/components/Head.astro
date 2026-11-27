@@ -217,51 +217,55 @@ const jsonLdText = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
       }
     })();
 
-    function init() {
-      var toggle = document.getElementById("theme-toggle");
-      if (toggle) {
-        toggle.addEventListener("click", function () {
-          // 从「跟随系统」直接点，就切到当前外观的反面
-          var next = document.documentElement.classList.contains("dark") ? "light" : "dark";
-          save(next);
-          apply(next);
-        });
+    // ClientRouter 换页时只换 <body>，文档不卸载：
+    // 按钮会被换成新的，所以用事件委托，等按钮出现就好，不必逐个重新绑；
+    // 这段内联脚本本身只会执行一次。
+    document.addEventListener("click", function (event) {
+      var target = event.target;
+      if (!target || !target.closest) return;
+
+      if (target.closest("#theme-toggle")) {
+        // 从「跟随系统」直接点，就切到当前外观的反面
+        var next = document.documentElement.classList.contains("dark") ? "light" : "dark";
+        save(next);
+        apply(next);
+        return;
       }
 
-      var system = document.getElementById("theme-system-button");
-      if (system) {
-        system.addEventListener("click", function () {
-          save("system");
-          apply("system");
-        });
+      if (target.closest("#theme-system-button")) {
+        save("system");
+        apply("system");
+        return;
       }
 
-      // 首屏 apply 时 <body> 还没解析，按钮上的文案和状态在这里补一次
-      apply(document.documentElement.getAttribute("data-theme-mode") || "system");
-
-      var mq = window.matchMedia("(prefers-color-scheme: dark)");
-      if (mq.addEventListener) {
-        mq.addEventListener("change", function () {
-          if (storedMode() === "system") apply("system");
-        });
+      if (target.closest("#back-to-top")) {
+        event.preventDefault();
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
+    });
 
-      var backToTop = document.getElementById("back-to-top");
-      if (backToTop) {
-        backToTop.addEventListener("click", function (e) {
-          e.preventDefault();
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        });
-      }
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) {
+      mq.addEventListener("change", function () {
+        if (storedMode() === "system") apply("system");
+      });
+    }
 
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    // 每次导航后按钮是全新的 DOM：把文案、aria、滚动状态补一遍
+    function refresh() {
+      // 首屏执行时 <body> 可能还没解析完，按钮不存在，等换页后
+      // 或 DOMContentLoaded 再补一次即可
+      apply(document.documentElement.getAttribute("data-theme-mode") || storedMode());
       onScroll();
-      window.addEventListener("scroll", onScroll, { passive: true });
     }
 
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", init);
+      document.addEventListener("DOMContentLoaded", refresh);
     } else {
-      init();
+      refresh();
     }
+    document.addEventListener("astro:page-load", refresh);
   })();
 </script>

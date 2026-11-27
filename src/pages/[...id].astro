@@ -205,6 +205,7 @@ const shareCard = {
     2) 点正文图片放大查看，Esc 或点任意处关闭
   */}
   <script>
+    import { onDoc, onWin } from "../lib/nav-cleanup";
 
     /* ---------- 代码块复制 ---------- */
 
@@ -516,7 +517,7 @@ const shareCard = {
         openAt(list, start < 0 ? 0 : start);
       });
 
-      document.addEventListener("keydown", (event) => {
+      onDoc("keydown", (event) => {
         if (!overlay) return;
         if (event.key === "Escape") close();
         else if (event.key === "ArrowLeft") show(index - 1);
@@ -629,17 +630,16 @@ const shareCard = {
         });
       }
 
-      window.addEventListener("scroll", onScroll, { passive: true });
-      window.addEventListener("resize", onScroll);
+      onWin("scroll", onScroll, { passive: true });
+      onWin("resize", onScroll);
       // 图片、字体加载完正文高度会变，收尾再校准一次
-      window.addEventListener("load", paint);
+      onWin("load", paint);
       paint();
     }
 
     function boot() {
       enhanceCodeBlocks();
       setupLightbox();
-      setupShare();
       setupReading();
     }
 

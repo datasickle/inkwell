@@ -1,5 +1,6 @@
 import { createShareCard, toPngBlob, cardFileName } from "./share-card";
 import type { ShareCardData } from "./share-card";
+import { onDoc } from "./nav-cleanup";
 
 
 export function setupShare() {
@@ -50,14 +51,14 @@ export function setupShare() {
     else closeMenu();
   });
 
-  document.addEventListener("click", (event) => {
+  onDoc("click", (event) => {
     if (menu.hidden) return;
     if (!(event.target instanceof Node)) return;
     if (menu.contains(event.target) || btn.contains(event.target)) return;
     closeMenu(false);
   });
 
-  document.addEventListener("keydown", (event) => {
+  onDoc("keydown", (event) => {
     if (event.key === "Escape" && !menu.hidden) closeMenu();
   });
 
@@ -258,7 +259,7 @@ export function setupShare() {
   modal.addEventListener("click", (event) => {
     if (event.target === modal) closeCard();
   });
-  document.addEventListener("keydown", (event) => {
+  onDoc("keydown", (event) => {
     if (event.key === "Escape" && !modal.hidden) closeCard();
   });
 

@@ -53,6 +53,8 @@
 </div>
 
 <script>
+  import { onDoc } from "../lib/nav-cleanup";
+
   const STORAGE_KEY = "reading";
 
   // 与 Head.astro 里「首屏前置应用」的默认值保持一致，改一处记得改两处
@@ -127,14 +129,14 @@
       save(values);
     });
 
-    document.addEventListener("click", (event) => {
+    onDoc("click", (event) => {
       if (panel.hidden) return;
       const target = event.target as Node;
       if (panel.contains(target) || button.contains(target)) return;
       setOpen(false);
     });
 
-    document.addEventListener("keydown", (event) => {
+    onDoc("keydown", (event) => {
       if (event.key === "Escape" && !panel.hidden) {
         setOpen(false);
         button.focus();
