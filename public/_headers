@@ -1,18 +1,22 @@
-# 浏览器缓存策略（Cloudflare Pages 的 _headers 文件，不是 nginx 的）
+# Cloudflare Pages 的静态响应头文件（语法仿 nginx，但不完全一样）
 #
-# 起因：Pages 默认给所有静态文件都发 `Cache-Control: public, max-age=0, must-revalidate`，
-# 而且 HTML 不带 ETag。于是「悬停预取」拿到的 HTML 无法复用，点击还是整页重下。
-# 这里做两件事：
-#   1. HTML 允许缓存 60 秒——站内跳转能命中预取，ttfb 从 ~180ms 降到 ~5ms；
-#   2. 带哈希的静态资源改成长缓存——文件名里有内容哈希，内容一变文件名就变，不存在脏读。
+# 关于 HTML 的缓存：Pages 默认就是 `public, max-age=0, must-revalidate`，
+# 而且不给 HTML 发 ETag。这里显式写 `no-cache` 是为了杜绝一个坑：
 #
-# 取舍：页面最多可能旧 60 秒。刚部署完的 60 秒内刷新，看到的可能还是上一版。
-# 更长的过期时间不要加：Cloudflare Pages 只保留当前部署，旧 HTML 引用的旧哈希文件会 404。
+#   如果让 HTML 缓存 60 秒，部署切换的那一分钟里，浏览器手里的旧 HTML
+#   会去请求旧版本才有的 /_astro/*.js。Pages 只保留当前部署，
+#   这些文件名已经 404 —— ClientRouter 脚本加载失败，站内跳转就退化成
+#   整页刷新（手机上表现为地址栏下方那条加载条一直转），
+#   而且那一页的进度条、分享、灯箱全部失效，必须手动刷新才能恢复。
+#
+# 所以 HTML 一律走协商缓存，保证拿到的 HTML 与它引用的资源永远同版本。
+# 带哈希的静态资源仍然可以放心长缓存。
+/* 
+  Cache-Control: no-cache
 
-/*
-  Cache-Control: public, max-age=60, must-revalidate
-
-# 规则按文件顺序生效；窄规则放在宽规则后面，并用 `!` 先摘掉上面那条，否则两个值会被逗号拼接。
+# 带内容哈希的资源：文件名变了就是新内容，可以缓存一年。
+# 必须先写 `! Cache-Control` 清掉上一条规则（Pages 是叠加而不是覆盖），
+# 否则会变成两个 Cache-Control 头。
 /_astro/*
   ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
@@ -21,7 +25,7 @@
   ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
 
-# 部署探针不能被缓存，否则 CI 会看到上一版的提交号，误判「还没部署」或者更糟——误判「已部署」。
+# 部署探针不能缓存，否则读到的是上一次部署
 /version.json
   ! Cache-Control
   Cache-Control: no-store
