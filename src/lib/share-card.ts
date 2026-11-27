@@ -27,6 +27,8 @@ export interface ShareCardData {
   site: string;
   author: string;
   domain: string;
+  /** 「文章」或「碎片」，画在标题上方的小胶囊里 */
+  kind?: string;
   image?: string | null;
 }
 
@@ -220,15 +222,31 @@ export async function createShareCard(data: ShareCardData): Promise<HTMLCanvasEl
   ctx.fillStyle = LINE;
   ctx.fillRect(PAD, 146, W - PAD * 2, 1);
 
-  // 标题上方的强调短线
-  ctx.fillStyle = ACCENT;
-  ctx.fillRect(PAD, 208, 56, 6);
+  // 标题上方的类型标签：一眼能看出这是文章还是碎片
+  let titleTop = 282;
+  if (data.kind) {
+    ctx.font = `600 22px ${FONT}`;
+    const pillText = data.kind;
+    const pillWidth = ctx.measureText(pillText).width + 40;
+    const pillHeight = 44;
+    const pillTop = 196;
+    // 中性描边：和站内标签胶囊同一套语言，不抢标题
+    ctx.strokeStyle = "#d9d9d9";
+    ctx.lineWidth = 1;
+    roundRect(ctx, PAD, pillTop, pillWidth, pillHeight, 22);
+    ctx.stroke();
+    ctx.fillStyle = INK;
+    ctx.fillText(pillText, PAD + 20, pillTop + 11);
+  } else {
+    ctx.fillStyle = ACCENT;
+    ctx.fillRect(PAD, 208, 56, 6);
+    titleTop = 250;
+  }
 
   // 标题
   // 没有配图的卡片内容更少，字号放大一档，免得中间空一大块
   const hasImage = Boolean(data.image);
   const tagTop = H - PAD - 190;
-  const titleTop = 250;
   ctx.fillStyle = INK;
   ctx.font = `700 ${hasImage ? 60 : 72}px ${FONT}`;
   const titleLines = wrapText(ctx, data.title, W - PAD * 2, 3);
