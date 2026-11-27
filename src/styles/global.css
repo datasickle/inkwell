@@ -357,6 +357,94 @@ html.dark .share-btn:hover {
   border-color: rgb(255 255 255 / 0.3);
 }
 
+/* 分享按钮 + 它上面弹出的菜单 */
+.share-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.share-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-width: 156px;
+  padding: 5px;
+  background: #fff;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 12px;
+  box-shadow: 0 14px 34px -14px rgb(0 0 0 / 0.32);
+  animation: share-menu-in 0.13s ease-out;
+}
+
+.share-menu[hidden] {
+  display: none;
+}
+
+@keyframes share-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+.share-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.3;
+  text-align: left;
+  color: rgb(0 0 0 / 0.72);
+  background: none;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+/* 下面这条必须单独写：上面给了 display:flex，会盖掉 [hidden] 的 display:none */
+.share-menu-item[hidden] {
+  display: none;
+}
+
+.share-menu-item:hover,
+.share-menu-item:focus-visible {
+  color: rgb(0 0 0 / 0.95);
+  background: rgb(0 0 0 / 0.05);
+  outline: none;
+}
+
+.share-menu-item[aria-busy="true"] {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+html.dark .share-menu {
+  background: #1d1d1d;
+  border-color: rgb(255 255 255 / 0.12);
+  box-shadow: 0 14px 34px -14px rgb(0 0 0 / 0.75);
+}
+
+html.dark .share-menu-item {
+  color: rgb(255 255 255 / 0.72);
+}
+
+html.dark .share-menu-item:hover,
+html.dark .share-menu-item:focus-visible {
+  color: #fff;
+  background: rgb(255 255 255 / 0.07);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .share-menu {
+    animation: none;
+  }
+}
+
 /* ------------------------------------------------------------------
    分享卡片（浏览器里用 canvas 画的那张图）
    ------------------------------------------------------------------ */
