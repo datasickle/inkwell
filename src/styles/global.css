@@ -358,6 +358,88 @@ html.dark .share-btn:hover {
 }
 
 /* ------------------------------------------------------------------
+   分享卡片（浏览器里用 canvas 画的那张图）
+   ------------------------------------------------------------------ */
+html.share-open,
+html.share-open body {
+  overflow: hidden;
+}
+
+.share-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgb(0 0 0 / 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.share-modal[hidden] {
+  display: none;
+}
+
+.share-modal-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(100vh - 48px);
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgb(0 0 0 / 0.35);
+}
+
+.share-modal-panel img {
+  display: block;
+  width: auto;
+  max-width: min(420px, calc(100vw - 80px));
+  max-height: calc(100vh - 190px);
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.share-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.share-modal-actions .share-btn {
+  text-decoration: none;
+}
+
+.share-modal-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: center;
+  color: rgb(0 0 0 / 0.5);
+}
+
+html.dark .share-modal-panel {
+  background: #1d1d1d;
+}
+
+html.dark .share-modal-hint {
+  color: rgb(255 255 255 / 0.55);
+}
+
+@media (max-width: 640px) {
+  .share-modal {
+    padding: 12px;
+  }
+
+  .share-modal-panel img {
+    max-width: calc(100vw - 48px);
+    max-height: calc(100vh - 210px);
+  }
+}
+
+/* ------------------------------------------------------------------
    图片放大
    ------------------------------------------------------------------ */
 article img {

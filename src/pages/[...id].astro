@@ -5,7 +5,9 @@ import FormattedDate from "../components/FormattedDate.astro";
 import BackToPrev from "../components/BackToPrev.astro";
 import { getCollection, render } from "astro:content";
 import type { CollectionEntry } from "astro:content";
-import { readingTime, firstLocalImage } from "../lib/format";
+import { readingTime, firstLocalImage, excerptOf } from "../lib/format";
+import { fmtDate } from "../lib/datetime";
+import site from "../../site.json";
 import { heroImage } from "../lib/images";
 import { groupByTag } from "../lib/tags";
 
@@ -47,6 +49,23 @@ const firstImage = firstLocalImage(post.body);
 const ogImage = firstImage ? `/og/${post.id}.png` : undefined;
 // 首图（LCP 候选）提前在 <head> 里取，别等解析到正文
 const preload = heroImage(firstImage);
+
+// 分享卡片要用的文字，先在这里算好，交给浏览器画
+const cardSummary = summary?.trim() || excerptOf(post.body, 160);
+const shareCard = {
+  title,
+  // 中文之间被摘录逻辑塞进去的空格去掉，排出来才像文章
+  summary: cardSummary
+    .replace(/(?<=[\u4e00-\u9fff])\s+(?=[\u4e00-\u9fff])/g, "")
+    .replace(/\s+/g, " "),
+  date: fmtDate(date),
+  tags,
+  url: new URL(Astro.url.pathname, Astro.site ?? site.url).href,
+  site: site.title,
+  author: site.author,
+  domain: new URL(site.url).host,
+  image: preload?.src ?? null,
+};
 ---
 
 <Base
@@ -147,11 +166,58 @@ const preload = heroImage(firstImage);
         </svg>
         <span id="share-label">分享</span>
       </button>
+      <button type="button" id="share-card-btn" class="share-btn" hidden>
+        <svg
+          viewBox="0 0 24 24"
+          class="size-4 fill-none stroke-current"
+          stroke-width="1.7"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+          <circle cx="9" cy="10" r="1.6"></circle>
+          <path d="M4 17l5-4 4 3 3-2 4 3"></path>
+        </svg>
+        <span>存为图片</span>
+      </button>
       <span
         id="share-tip"
         class="text-xs opacity-0 transition-opacity duration-300"
         role="status"
         aria-live="polite"></span>
+    </div>
+
+    <script
+      type="application/json"
+      id="share-card-data"
+      is:inline
+      set:html={JSON.stringify(shareCard).replace(/</g, "\\u003c")}
+    />
+
+    <div id="share-card-modal" class="share-modal" hidden>
+      <div
+        class="share-modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="文章分享卡片">
+        <img
+          id="share-card-img"
+          alt="文章分享卡片"
+          width="1080"
+          height="1350"
+          loading="lazy" />
+        <div class="share-modal-actions">
+          <a id="share-card-save" class="share-btn" download>保存图片</a>
+          <button id="share-card-share" class="share-btn" type="button" hidden
+            >分享图片</button
+          >
+          <button id="share-card-close" class="share-btn" type="button">关闭</button>
+        </div>
+        <p id="share-card-hint" class="share-modal-hint" hidden>
+          手机上没有「保存图片」时，可以长按上面的图片存进相册。
+        </p>
+      </div>
     </div>
 
     <p class="animate mt-6 text-xs leading-6 opacity-55">
@@ -209,6 +275,8 @@ const preload = heroImage(firstImage);
     2) 点正文图片放大查看，Esc 或点任意处关闭
   */}
   <script>
+    import { createShareCard, toPngBlob, cardFileName } from "../lib/share-card";
+
     /* ---------- 代码块复制 ---------- */
 
     async function copyText(text: string) {
@@ -589,6 +657,109 @@ const preload = heroImage(firstImage);
       });
     }
 
+    /* ---------- 分享卡片 ---------- */
+
+    type ShareCardInput = {
+      title: string;
+      summary: string;
+      date: string;
+      tags: string[];
+      url: string;
+      site: string;
+      author: string;
+      domain: string;
+    };
+
+    function setupShareCard() {
+      const btn = document.getElementById("share-card-btn");
+      const dataEl = document.getElementById("share-card-data");
+      const modal = document.getElementById("share-card-modal");
+      if (!btn || !dataEl || !modal) return;
+
+      const img = document.getElementById("share-card-img") as HTMLImageElement | null;
+      const save = document.getElementById("share-card-save") as HTMLAnchorElement | null;
+      const shareBtn = document.getElementById("share-card-share") as HTMLButtonElement | null;
+      const closeBtn = document.getElementById("share-card-close");
+      const hint = document.getElementById("share-card-hint");
+      if (!img || !save || !closeBtn) return;
+
+      let data: ShareCardInput;
+      try {
+        data = JSON.parse(dataEl.textContent ?? "{}") as ShareCardInput;
+      } catch {
+        return;
+      }
+      if (!data.title) return;
+
+      const fileName = cardFileName(data.title);
+      let objectUrl = "";
+      let file: File | null = null;
+
+      function close() {
+        modal.hidden = true;
+        document.documentElement.classList.remove("share-open");
+        if (objectUrl) {
+          URL.revokeObjectURL(objectUrl);
+          objectUrl = "";
+        }
+        img.removeAttribute("src");
+      }
+
+      btn.hidden = false;
+
+      btn.addEventListener("click", async () => {
+        btn.setAttribute("aria-busy", "true");
+        try {
+          const canvas = await createShareCard(data);
+          const blob = await toPngBlob(canvas);
+          file = new File([blob], fileName, { type: "image/png" });
+
+          // Safari 的分享面板认 File，桌面上 canShare 会直接返回 false
+          const canShareFile =
+            typeof navigator.canShare === "function" &&
+            navigator.canShare({ files: [file] });
+          if (shareBtn) shareBtn.hidden = !canShareFile;
+          // 安卓 Chrome 支持 download 属性，iOS Safari 不支持，得提示长按保存
+          if (hint) hint.hidden = canShareFile || !("download" in HTMLAnchorElement.prototype);
+
+          objectUrl = URL.createObjectURL(blob);
+          img.src = objectUrl;
+          save.href = objectUrl;
+          save.download = fileName;
+          modal.hidden = false;
+          document.documentElement.classList.add("share-open");
+        } catch {
+          if (hint) {
+            hint.textContent = "这张卡片没能生成，换用「复制链接」也可以。";
+            hint.hidden = false;
+          }
+        } finally {
+          btn.removeAttribute("aria-busy");
+        }
+      });
+
+      shareBtn?.addEventListener("click", async () => {
+        if (!file) return;
+        try {
+          await navigator.share({ files: [file], title: data.title, text: data.summary });
+        } catch (err) {
+          // 用户取消不用管，其它失败退回保存
+          if ((err as DOMException)?.name !== "AbortError" && hint) {
+            hint.textContent = "系统分享没打开，直接保存图片也可以。";
+            hint.hidden = false;
+          }
+        }
+      });
+
+      closeBtn.addEventListener("click", close);
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) close();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !modal.hidden) close();
+      });
+    }
+
     /* ---------- 阅读进度 + 目录跟随 ---------- */
 
     function setupReading() {
@@ -693,6 +864,7 @@ const preload = heroImage(firstImage);
       enhanceCodeBlocks();
       setupLightbox();
       setupShare();
+    setupShareCard();
       setupReading();
     }
 
