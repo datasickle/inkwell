@@ -17,6 +17,7 @@
     "test:auth": "node tests/auth.mjs",
     "test:img": "node tests/image.mjs",
     "test:notes": "node tests/notes.mjs",
+    "test:pages": "node tests/pages.mjs",
     "android:sync": "cap sync android",
     "android:open": "cap open android",
     "app:copy": "node tools/copy-app.mjs"
