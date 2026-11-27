@@ -1,9 +1,9 @@
-import { fmtDot, fmtMonthDay } from "./datetime";
+import { fmtDate, fmtMonthDay } from "./datetime";
 
 // 这两个都按东八区折算，别改成 date.getMonth()：
 // 构建机在 UTC，凌晨发布会被算成前一天
 export function formatDate(date: Date): string {
-  return fmtDot(date);
+  return fmtDate(date);
 }
 
 export function formatDay(date: Date): string {

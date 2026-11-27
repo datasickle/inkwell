@@ -51,28 +51,28 @@ export function yearOf(date: Date): number {
   return Number(partsOf(date).y);
 }
 
-/** 2026.11.23 —— 标签页那种紧凑写法 */
-export function fmtDot(date: Date): string {
+/** 2026/11/23 —— 标签页那种紧凑写法 */
+export function fmtDate(date: Date): string {
   const { y, m, d } = partsOf(date);
-  return `${y}.${m}.${d}`;
+  return `${y}/${m}/${d}`;
 }
 
-/** 11.23 —— 归档页用，年份已经在分组标题里 */
+/** 11/23 —— 归档页用，年份已经在分组标题里 */
 export function fmtMonthDay(date: Date): string {
   const { m, d } = partsOf(date);
-  return `${m}.${d}`;
+  return `${m}/${d}`;
 }
 
-/** 2026 年 11 月 23 日 20:14:07 —— 文章页主时间，精确到秒 */
+/** 2026/11/23 20:14:07 —— 文章页主时间，精确到秒 */
 export function fmtFull(date: Date): string {
   const { y, m, d, hh, mm, ss } = partsOf(date);
-  return `${y} 年 ${Number(m)} 月 ${Number(d)} 日 ${hh}:${mm}:${ss}`;
+  return `${y}/${m}/${d} ${hh}:${mm}:${ss}`;
 }
 
-/** 11-23 20:14 —— 列表、上下篇这种空间紧张的地方 */
+/** 11/23 20:14 —— 列表、上下篇这种空间紧张的地方 */
 export function fmtShort(date: Date): string {
   const { m, d, hh, mm } = partsOf(date);
-  return `${m}-${d} ${hh}:${mm}`;
+  return `${m}/${d} ${hh}:${mm}`;
 }
 
 /** 2026-11-23T20:14:07+08:00 —— <time datetime> 用，机器可读且不带歧义 */
