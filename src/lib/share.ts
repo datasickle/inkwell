@@ -155,16 +155,41 @@ export function setupShare() {
   let objectUrl = "";
   let file: File | null = null;
 
-  // 弹层锁滚动时，滚动条会消失，页面会横跳一下；补上等宽的右内边距就不跳了
+  // 弹层锁滚动时有两件事会动页面：
+  // 1) 滚动条消失，内容会横向补 15px —— 用等宽右内边距补掉
+  // 2) html 上的 overflow:hidden 会让文档「不再可滚动」，有些浏览器顺手把
+  //    滚动位置清零，加上后面 focus() 也会把焦点滚进视野 —— 所以先把
+  //    scrollY 记下来，锁完立刻用 auto（不是 smooth）写回去
+  let lockedY = 0;
+
   function lockScroll() {
+    lockedY = window.scrollY;
     const gap = window.innerWidth - document.documentElement.clientWidth;
     if (gap > 0) document.documentElement.style.paddingRight = `${gap}px`;
     document.documentElement.classList.add("share-open");
+    document.body.style.position = "fixed";
+    document.body.style.top = `${-lockedY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.width = "100%";
+    const prev = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = "auto";
+    window.scrollTo(0, lockedY);
+    document.documentElement.style.scrollBehavior = prev;
   }
 
   function unlockScroll() {
     document.documentElement.classList.remove("share-open");
     document.documentElement.style.paddingRight = "";
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.left = "";
+    document.body.style.right = "";
+    document.body.style.width = "";
+    const prev = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = "auto";
+    window.scrollTo(0, lockedY);
+    document.documentElement.style.scrollBehavior = prev;
   }
 
   function closeCard() {
@@ -209,7 +234,7 @@ export function setupShare() {
       ]);
       lockScroll();
       modal.hidden = false;
-      closeBtn!.focus();
+      closeBtn!.focus({ preventScroll: true });
     } catch {
       flash("这张卡片没能生成，换用「复制链接」也可以");
     } finally {
