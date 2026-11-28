@@ -42,11 +42,17 @@ const { readingPrefs = false, ...headProps } = Astro.props;
     <script>
       // 绑定一次即可：文档不卸载，这段脚本也只会跟着首个页面执行
       import { resetOnNavigate } from "../lib/nav-cleanup";
+      import { setupLightbox, closeLightbox } from "../lib/lightbox";
       const flag = "__navCleanupBound";
       if (!(window as unknown as Record<string, boolean>)[flag]) {
         (window as unknown as Record<string, boolean>)[flag] = true;
-        document.addEventListener("astro:before-swap", () => resetOnNavigate());
+        document.addEventListener("astro:before-swap", () => {
+          closeLightbox();
+          resetOnNavigate();
+        });
       }
+      // 图片放大是文档级委托，绑一次就够；放在这里，文章页和碎片页都生效
+      setupLightbox();
     </script>
   </body>
 </html>
