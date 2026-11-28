@@ -953,3 +953,41 @@ html.dark header nav a[aria-current="page"]:hover {
     animation: none;
   }
 }
+/* 标签胶囊：文章页、碎片详情、碎片列表共用同一套样式。
+   文章页的标签是链接（跳到 /tags/ 的锚点），碎片没有标签页，所以只显示不跳。 */
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 20px;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 999px;
+  opacity: 0.75;
+  transition:
+    border-color 0.3s ease,
+    color 0.3s ease,
+    opacity 0.3s ease;
+}
+
+a.tag-pill:hover {
+  border-color: rgb(0 0 0 / 0.25);
+  color: #000;
+  opacity: 1;
+}
+
+html.dark .tag-pill {
+  border-color: rgb(255 255 255 / 0.15);
+}
+
+html.dark a.tag-pill:hover {
+  border-color: rgb(255 255 255 / 0.3);
+  color: #fff;
+}

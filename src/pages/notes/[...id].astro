@@ -81,15 +81,16 @@ const shareCard = {
     </div>
 
     <div class="my-8 space-y-2">
-      <div class="animate flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm opacity-70">
-        <time datetime={isoZoned(note.data.date)} class="tabular-nums">{stamp}</time>
+      <div class="animate flex flex-wrap items-center gap-x-1.5 gap-y-1.5 text-sm">
+        <time datetime={isoZoned(note.data.date)} class="tabular-nums opacity-70">{stamp}</time>
         {
           note.data.tags.length > 0 && (
-            <>
-              <span class="opacity-40">{"/"}</span>
+            <span class="tag-row">
               <!-- 标签页是按文章组织的，碎片先不跳过去，免得点进去是空页 -->
-              <span>{note.data.tags.join(" / ")}</span>
-            </>
+              {note.data.tags.map((tag) => (
+                <span class="tag-pill">{tag}</span>
+              ))}
+            </span>
           )
         }
       </div>

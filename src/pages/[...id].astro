@@ -97,12 +97,9 @@ const shareCard = {
         <span>{readingTime(post.body)} 分钟</span>
         {
           tags.length > 0 && (
-            <span class="flex flex-wrap items-center gap-1.5">
+            <span class="tag-row">
               {tags.map((tag) => (
-                <a
-                  href={`/tags#${tagAnchors[tag] ?? ""}`}
-                  class="rounded-full border border-black/10 px-2 py-0.5 text-xs leading-5 transition-colors duration-300 opacity-75 hover:border-black/25 hover:text-black hover:opacity-100 dark:border-white/15 dark:hover:border-white/30 dark:hover:text-white"
-                >
+                <a href={`/tags#${tagAnchors[tag] ?? ""}`} class="tag-pill">
                   {tag}
                 </a>
               ))}
